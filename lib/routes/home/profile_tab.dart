@@ -19,7 +19,6 @@ import "package:go_router/go_router.dart";
 import "package:material_symbols_icons_flow/symbols.dart";
 import "package:moment_dart/moment_dart.dart";
 import "package:shared_preferences/shared_preferences.dart";
-import "package:simple_icons_flow/simple_icons_flow.dart";
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -90,33 +89,6 @@ class _ProfileTabState extends State<ProfileTab> {
             title: Text("preferences.transactions.pending".t(context)),
             leading: const Icon(Symbols.search_activity_rounded),
             onTap: () => context.push("/transactions/pending"),
-          ),
-          const SizedBox(height: 32.0),
-          ListHeader("tabs.profile.community".t(context)),
-          ListTile(
-            title: Text("tabs.profile.support".t(context)),
-            leading: const Icon(Symbols.favorite_rounded),
-            onTap: () => context.push("/support"),
-          ),
-          ListTile(
-            title: Text("contributors".t(context)),
-            leading: const Icon(Symbols.groups_rounded),
-            onTap: () => context.push("/community/contributors"),
-          ),
-          ListTile(
-            title: Text("tabs.profile.recommend".t(context)),
-            leading: const Icon(Symbols.share_rounded),
-            onTap: () => context.showUriShareSheet(uri: website),
-          ),
-          // ListTile(
-          //   title: Text("tabs.profile.guide".t(context)),
-          //   leading: const Icon(Symbols.book_2_rounded),
-          //   onTap: () => openUrl(guideUrl),
-          // ),
-          ListTile(
-            title: Text("visitGitHubRepo".t(context)),
-            leading: const Icon(SimpleIcons.github),
-            onTap: () => openUrl(flowGitHubRepoLink),
           ),
           const SizedBox(height: 32.0),
           ListHeader("tabs.profile.other".t(context)),

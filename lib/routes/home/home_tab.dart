@@ -9,6 +9,7 @@ import "package:flow/data/transactions_filter/time_range.dart";
 import "package:flow/entity/transaction.dart";
 import "package:flow/entity/transaction_filter_preset.dart";
 import "package:flow/l10n/extensions.dart";
+import "package:flow/l10n/named_enum.dart";
 import "package:flow/objectbox/actions.dart";
 import "package:flow/prefs/local_preferences.dart";
 import "package:flow/routes/home_page.dart";
@@ -19,12 +20,13 @@ import "package:flow/theme/helpers.dart";
 import "package:flow/utils/utils.dart";
 import "package:flow/widgets/default_transaction_filter_head.dart";
 import "package:flow/widgets/general/frame.dart";
-import "package:flow/widgets/general/money_text_builder.dart";
+import "package:flow/widgets/general/money_text.dart";
+import "package:flow/data/ledger_stats.dart";
 import "package:flow/widgets/general/pending_transactions_header.dart";
 import "package:flow/widgets/general/wavy_divider.dart";
 import "package:flow/widgets/grouped_transactions_list_view.dart";
-import "package:flow/widgets/home/greetings_bar.dart";
-import "package:flow/widgets/home/home/flow_cards.dart";
+import "package:flow/widgets/home/privacy_toggler.dart";
+
 import "package:flow/widgets/home/home/no_transactions.dart";
 import "package:flow/widgets/internal_notifications/internal_notification_section.dart";
 import "package:flow/widgets/rates_missing_error_box.dart";
@@ -300,9 +302,26 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                 bottom: false,
                 child: Column(
                   children: [
-                    const Frame.standalone(
+                    Frame.standalone(
                       withSurface: true,
-                      child: GreetingsBar(),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  "tabs.home".t(context),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineMedium,
+                                ),
+                              ),
+                              const PrivacyToggler(),
+                            ],
+                          ),
+                          buildMonthNavigation(context),
+                        ],
+                      ),
                     ),
                     header,
                   ],
@@ -310,21 +329,74 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               ),
             ),
           ),
-          switch ((transactions.length, hasCurrent)) {
-            (0, true) => SliverFillRemaining(
-              child: NoTransactions(isFilterModified: isFilterModified),
-            ),
-            (_, true) => buildGroupedList(context, transactions),
-            (_, false) => const SliverFillRemaining(
+          if (hasCurrent) ...[
+            buildGroupedList(context, transactions),
+            if (transactions.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: NoTransactions(isFilterModified: isFilterModified),
+              ),
+          ] else
+            const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
             ),
-          },
           SliverToBoxAdapter(
             child: SafeArea(child: const SizedBox(height: 96.0)),
           ),
         ],
       ),
     );
+  }
+
+  Widget buildMonthNavigation(BuildContext context) {
+    final now = DateTime.now();
+    const interval = LedgerInterval.month;
+    final selectedRange = currentFilter.range?.range;
+    final month = interval.start((selectedRange?.from ?? now).toLocal());
+    final isMonth =
+        selectedRange?.from.isAtSameMomentAs(month) == true &&
+        selectedRange?.to
+                .difference(interval.range(month).to)
+                .abs()
+                .inSeconds ==
+            0;
+    final title = isMonth ? "${month.year}年${month.month}月" : "当前筛选期间";
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          tooltip: "上个月",
+          onPressed: () => showMonth(interval.offset(month, -1)),
+          icon: const Icon(Icons.chevron_left),
+        ),
+        Flexible(
+          child: TextButton(
+            onPressed: isMonth && month == interval.start(now)
+                ? null
+                : () => showMonth(now),
+            child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+          ),
+        ),
+        IconButton(
+          tooltip: "下个月",
+          onPressed: month.isBefore(interval.start(now))
+              ? () => showMonth(interval.offset(month, 1))
+              : null,
+          icon: const Icon(Icons.chevron_right),
+        ),
+      ],
+    );
+  }
+
+  void showMonth(DateTime date) {
+    final range = LedgerInterval.month.range(date);
+    setState(() {
+      currentFilter = currentFilter.copyWithOptional(
+        range: Optional(TransactionFilterTimeRange.fromTimeRange(range)),
+      );
+      _recomputeTransactions();
+    });
+    _subscribeToTransactions();
   }
 
   Widget buildGroupedList(
@@ -375,30 +447,57 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               //   Text("transactions.count".t(context, transactions.length)),
               //   const SizedBox(height: 4.0),
               // ],
-              SizedBox(height: 8.0),
-              FlowCards(
-                totalExpense: combinedFlow.totalExpense,
-                totalIncome: combinedFlow.totalIncome,
-              ),
-              SizedBox(height: 8.0),
-              Align(
-                alignment: AlignmentDirectional.topStart,
-                child: MoneyTextBuilder(
-                  money: combinedFlow.totalFlow,
-                  abbreviate: true,
-                  builder: (context, flowText, _) => Text(
-                    [
-                      flowText,
-                      "transactions.count".t(
-                        context,
-                        transactions.renderableCount,
-                      ),
-                    ].join(" • "),
-                    style: context.textTheme.bodyMedium?.semi(context),
-                  ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: context.colorScheme.secondary,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(TransactionType.expense.localizedNameContext(context)),
+                    MoneyText(
+                      combinedFlow.totalExpense,
+                      displayAbsoluteAmount: true,
+                      autoSize: true,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const Divider(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                TransactionType.income.localizedNameContext(
+                                  context,
+                                ),
+                              ),
+                              MoneyText(
+                                combinedFlow.totalIncome,
+                                autoSize: true,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("tabs.home.flow".t(context)),
+                              MoneyText(combinedFlow.totalFlow, autoSize: true),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: 4.0),
             ],
           ),
           controller: widget.scrollController,

@@ -44,13 +44,25 @@ class NavbarButton extends StatelessWidget {
                 opacity: isActive ? 1 : navbarTheme.inactiveIconOpacity,
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeOut,
-                child: Icon(
-                  icon,
-                  color: navbarTheme.activeIconColor,
-                  fill: (isActive && icon != Symbols.circle_rounded)
-                      ? 1.0
-                      : 0.0,
-                  weight: isActive ? 600.0 : 400.0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      color: navbarTheme.activeIconColor,
+                      fill: (isActive && icon != Symbols.circle_rounded)
+                          ? 1.0
+                          : 0.0,
+                      weight: isActive ? 600.0 : 400.0,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      tooltip,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
                 ),
               ),
             ),

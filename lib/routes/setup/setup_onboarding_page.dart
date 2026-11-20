@@ -1,3 +1,4 @@
+import "package:flow/services/user_preferences.dart";
 import "dart:async";
 import "dart:developer";
 import "dart:io";
@@ -75,7 +76,10 @@ class _SetupOnboardingPageState extends State<SetupOnboardingPage> {
                     spacing: 16.0,
                     children: [
                       ActionCard(
-                        onTap: () => context.push("/setup/currency"),
+                        onTap: () {
+                          UserPreferencesService().primaryCurrency = "CNY";
+                          context.push("/setup/accounts");
+                        },
                         icon: FlowIconData.icon(Symbols.wand_stars_rounded),
                         title: "setup.onboarding.freshStart".t(context),
                         subtitle: "setup.onboarding.freshStart.description".t(

@@ -12,18 +12,14 @@ import "package:flow/routes/home/profile_tab.dart";
 import "package:flow/routes/home/stats_tab.dart";
 import "package:flow/services/navigation.dart";
 import "package:flow/services/notifications.dart";
-import "package:flow/theme/theme.dart";
 import "package:flow/utils/shortcut.dart";
 import "package:flow/widgets/external_toasts_handler.dart";
-import "package:flow/widgets/general/frame.dart";
 import "package:flow/widgets/home/navbar.dart";
-import "package:flow/widgets/home/navbar/new_transaction_button.dart";
 import "package:flutter/material.dart" hide Flow;
 import "package:flutter/scheduler.dart";
 import "package:flutter/services.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:go_router/go_router.dart";
-import "package:pie_menu/pie_menu.dart";
 
 class HomePage extends StatefulWidget {
   static bool initialized = false;
@@ -148,52 +144,37 @@ class HomePageState extends State<HomePage>
         },
         child: Focus(
           autofocus: true,
-          child: PieCanvas(
-            theme: context.pieTheme,
-            child: Stack(
-              children: [
-                Scaffold(
-                  body: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      HomeTab(scrollController: _homeTabScrollController),
-                      const StatsTab(),
-                      const SafeArea(child: AccountsTab()),
-                      const SafeArea(child: ProfileTab()),
-                    ],
-                  ),
+          child: Stack(
+            children: [
+              Scaffold(
+                body: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    HomeTab(scrollController: _homeTabScrollController),
+                    const StatsTab(),
+                    const SafeArea(child: AccountsTab()),
+                    const SafeArea(child: ProfileTab()),
+                  ],
                 ),
-                Positioned(
-                  bottom: 16.0,
-                  left: 0.0,
-                  right: 0.0,
-                  child: SafeArea(
-                    child: IgnorePointer(
-                      ignoring: hideBottomNav,
-                      child: AnimatedSlide(
-                        offset: Offset(0.0, hideBottomNav ? 2.0 : 0.0),
-                        duration: const Duration(milliseconds: 100),
-                        child: Frame(
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Navbar(
-                                onTap: (i) => _navigateTo(i),
-                                activeIndex: _currentIndex,
-                              ),
-                              NewTransactionButton(
-                                onActionTap: (type) =>
-                                    _newTransactionPage(type),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0.0,
+                right: 0.0,
+                child: IgnorePointer(
+                  ignoring: hideBottomNav,
+                  child: AnimatedSlide(
+                    offset: Offset(0.0, hideBottomNav ? 2.0 : 0.0),
+                    duration: const Duration(milliseconds: 100),
+                    child: Navbar(
+                      onTap: _navigateTo,
+                      onAdd: () => _newTransactionPage(FlowButtonType.expense),
+                      activeIndex: _currentIndex,
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

@@ -213,6 +213,16 @@ class _TransactionPageState extends State<TransactionPage> {
           : accounts.firstWhereOrNull(
               (account) => account.uuid == widget.params!.fromAccountUuid,
             );
+      if (_selectedAccount == null && widget.params?.fromAccountUuid == null) {
+        _selectedAccount =
+            AccountsService().findOneActiveSync(
+              LocalPreferences().lastEntryAccountUuid.value,
+            ) ??
+            AccountsService().findOneActiveSync(
+              UserPreferencesService().primaryAccountUuid,
+            ) ??
+            accounts.firstWhereOrNull((account) => !account.archived);
+      }
       _selectedCategory = widget.params?.categoryUuid == null
           ? null
           : categories.firstWhereOrNull(
@@ -839,12 +849,6 @@ class _TransactionPageState extends State<TransactionPage> {
 
     if (!mounted) return;
 
-    final hideCurrencySymbol = !TransitiveLocalPreferences()
-        .usesMultipleCurrencies
-        .get();
-
-    String? enteredCurrency;
-
     final double? result = await showModalBottomSheet<double>(
       context: context,
       builder: (context) => InputAmountSheet(
@@ -854,22 +858,15 @@ class _TransactionPageState extends State<TransactionPage> {
             : _selectedAccount?.currency,
         hideCurrencySymbol:
             !hasForeignCurrency &&
-            _selectedAccount == null &&
-            hideCurrencySymbol,
+            (_selectedAccount?.currency ?? "CNY") == "CNY",
         title: _transactionType.localizedNameContext(context),
         lockSign: true,
-        onCurrencyChange: isTransfer
-            ? null
-            : (currency) => enteredCurrency = currency,
-        currencyHint: TransitiveLocalPreferences().showCurrencyPickerHint,
-        convertTo: isTransfer ? null : _selectedAccount?.currency,
       ),
       isScrollControlled: true,
     );
 
     if (result != null) {
       if (hasForeignCurrency &&
-          enteredCurrency == _foreignCurrency &&
           _selectedAccount != null &&
           _foreignAmount != 0) {
         // Keep the rate, as the user may have edited the converted amount
@@ -879,9 +876,8 @@ class _TransactionPageState extends State<TransactionPage> {
           ),
         );
         _foreignAmount = result.abs();
-      } else if (enteredCurrency != null &&
-          enteredCurrency != _selectedAccount?.currency) {
-        await _setForeignAmount(result, enteredCurrency!);
+      } else if (_foreignCurrency case final currency?) {
+        await _setForeignAmount(result, currency);
       } else {
         _foreignCurrency = null;
         _foreignCurrencyResolved = false;
@@ -1589,6 +1585,8 @@ class _TransactionPageState extends State<TransactionPage> {
         longitude: _geo?.longitude,
       );
     }
+
+    LocalPreferences().lastEntryAccountUuid.set(_selectedAccount!.uuid);
 
     // Planned transactions are the first moment reminders make sense
     if (transactionDate.isFuture || _recurrence != null) {

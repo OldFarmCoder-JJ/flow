@@ -1,5 +1,7 @@
 import "dart:io";
 
+import "package:flutter/material.dart";
+
 import "package:flow/logging.dart";
 import "package:flow/theme/color_themes/catppuccin/frappe.dart";
 import "package:flow/theme/color_themes/catppuccin/macchiato.dart";
@@ -22,7 +24,24 @@ export "flow/flow_oleds.dart";
 export "palenight.dart";
 export "monochrome.dart";
 
+final ledgerLight = FlowColorScheme(
+  name: "ledgerLight",
+  isDark: false,
+  surface: const Color(0xFFFFFAF3),
+  onSurface: const Color(0xFF25211C),
+  primary: const Color(0xFF915200),
+  onPrimary: Colors.white,
+  secondary: const Color(0xFFFFECD0),
+  onSecondary: const Color(0xFF4C310F),
+  customColors: const FlowCustomColors(
+    income: Color(0xFF256349),
+    expense: Color(0xFF963C32),
+    semi: Color(0xFF6E6154),
+  ),
+);
+
 final Map<String, FlowColorScheme> standaloneThemes = {
+  "ledgerLight": ledgerLight,
   "palenight": palenight,
   "monochrome": monochrome,
 };
@@ -75,7 +94,7 @@ FlowColorScheme getTheme(String? themeName, {bool preferDark = false}) {
 
   if (scheme == null) {
     themeLogger.warning("Unknown theme: $themeName", StackTrace.current);
-    return preferDark ? flowDarks.schemes.first : flowDarks.schemes.first;
+    return preferDark ? flowDarks.schemes.first : ledgerLight;
   }
 
   return scheme;

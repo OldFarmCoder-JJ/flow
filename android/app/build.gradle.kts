@@ -29,7 +29,7 @@ android {
   }
 
   defaultConfig {
-    applicationId = "mn.flow.flow"
+    applicationId = "cn.yuanxun.ledger"
     minSdk = flutter.minSdkVersion
     targetSdk = 36
     versionCode = flutter.versionCode

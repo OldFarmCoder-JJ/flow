@@ -34,12 +34,16 @@ class TransactionsPage extends StatefulWidget {
   final QueryBuilder<Transaction> Function(TimeRange range) queryFn;
   final TimeRange? initialRange;
   final String? title;
+  final bool Function(Transaction)? matches;
+  final bool fixedRange;
 
   const TransactionsPage({
     super.key,
     required this.queryFn,
     this.initialRange,
     this.title,
+    this.matches,
+    this.fixedRange = false,
   });
 
   factory TransactionsPage.account({
@@ -165,7 +169,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
       body: StreamBuilder<List<Transaction>>(
         stream: _transactions,
         builder: (context, snapshot) {
-          final List<Transaction> visible = snapshot.data ?? const [];
+          final List<Transaction> rows = snapshot.data ?? const [];
+          final matches = widget.matches;
+          final visible = matches == null ? rows : rows.where(matches).toList();
 
           return TransactionsSelectionScope(
             controller: _selection,
@@ -179,20 +185,21 @@ class _TransactionsPageState extends State<TransactionsPage> {
                       children: [
                         if (showExchangeRatesMissingWarning)
                           RatesMissingErrorBox(),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Frame(
-                            child: TimeRangeSelector(
-                              initialValue: _timeRange,
-                              onChanged: (newRange) {
-                                setState(() {
-                                  _timeRange = newRange;
-                                  _transactions = _watch(newRange);
-                                });
-                              },
+                        if (!widget.fixedRange)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Frame(
+                              child: TimeRangeSelector(
+                                initialValue: _timeRange,
+                                onChanged: (newRange) {
+                                  setState(() {
+                                    _timeRange = newRange;
+                                    _transactions = _watch(newRange);
+                                  });
+                                },
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -203,7 +210,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                           return const Spinner.center();
                         }
 
-                        if (snapshot.requireData.isEmpty) {
+                        if (visible.isEmpty) {
                           return Center(
                             child: Padding(
                               padding: const EdgeInsets.all(24.0),
@@ -232,38 +239,40 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
                         final DateTime now = DateTime.now().startOfNextMinute();
 
-                  final Map<TimeRange, List<Transaction>> transactions =
-                      snapshot.requireData
-                          .where(
-                            (transaction) =>
-                                !transaction.transactionDate.isAfter(now) &&
-                                transaction.isPending != true,
-                          )
-                          .groupByDate();
-                  final Map<TimeRange, List<Transaction>> pendingTransactions =
-                      snapshot.requireData
-                          .where(
-                            (transaction) =>
-                                transaction.transactionDate.isAfter(now) ||
-                                transaction.isPending == true,
-                          )
-                          .groupByDate();
+                        final Map<TimeRange, List<Transaction>> transactions =
+                            visible
+                                .where(
+                                  (transaction) =>
+                                      !transaction.transactionDate.isAfter(
+                                        now,
+                                      ) &&
+                                      transaction.isPending != true,
+                                )
+                                .groupByDate();
+                        final Map<TimeRange, List<Transaction>>
+                        pendingTransactions = visible
+                            .where(
+                              (transaction) =>
+                                  transaction.transactionDate.isAfter(now) ||
+                                  transaction.isPending == true,
+                            )
+                            .groupByDate();
 
-                  final int totalTransactionsCount =
-                      transactions.values.fold<int>(
-                        0,
-                        (previousValue, element) =>
-                            /// Since the [GroupedTransactionList] below isn't able to combine
-                            /// transfer transactions, we need to count them separately.
-                            previousValue + element.length,
-                      ) +
-                      pendingTransactions.values.fold<int>(
-                        0,
-                        (previousValue, element) =>
-                            /// Since the [GroupedTransactionList] below isn't able to combine
-                            /// transfer transactions, we need to count them separately.
-                            previousValue + element.length,
-                      );
+                        final int totalTransactionsCount =
+                            transactions.values.fold<int>(
+                              0,
+                              (previousValue, element) =>
+                                  /// Since the [GroupedTransactionList] below isn't able to combine
+                                  /// transfer transactions, we need to count them separately.
+                                  previousValue + element.length,
+                            ) +
+                            pendingTransactions.values.fold<int>(
+                              0,
+                              (previousValue, element) =>
+                                  /// Since the [GroupedTransactionList] below isn't able to combine
+                                  /// transfer transactions, we need to count them separately.
+                                  previousValue + element.length,
+                            );
 
                         return GroupedTransactionsListView(
                           selectionController: _selection,

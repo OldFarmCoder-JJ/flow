@@ -68,6 +68,7 @@ abstract class FlowWidgetUtils {
             .clickable(
               onClick = actionStartActivity(
                 Intent(Intent.ACTION_VIEW, "flow-mn:///transaction/new?type=${operation}".toUri()).apply {
+                  setPackage(context.packageName)
                   addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
               )

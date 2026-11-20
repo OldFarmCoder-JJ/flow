@@ -24,6 +24,7 @@ class LocalPreferences {
 
   /// Main currency used in the app
   late final PrimitiveSettingsEntry<String> primaryCurrency;
+  late final PrimitiveSettingsEntry<String> lastEntryAccountUuid;
 
   /// Whether to use phone numpad layout
   ///
@@ -46,6 +47,7 @@ class LocalPreferences {
 
   late final BoolSettingsEntry autoAttachTransactionGeo;
 
+  late final BoolSettingsEntry ledgerThemeMigrated;
   late final BoolSettingsEntry privacyMode;
   late final BoolSettingsEntry privacyModeUponShaking;
 
@@ -81,6 +83,10 @@ class LocalPreferences {
 
     primaryCurrency = PrimitiveSettingsEntry<String>(
       key: "primaryCurrency",
+      preferences: _prefs,
+    );
+    lastEntryAccountUuid = PrimitiveSettingsEntry<String>(
+      key: "lastEntryAccountUuid",
       preferences: _prefs,
     );
     usePhoneNumpadLayout = BoolSettingsEntry(
@@ -125,6 +131,11 @@ class LocalPreferences {
       initialValue: false,
     );
 
+    ledgerThemeMigrated = BoolSettingsEntry(
+      key: "ledgerThemeMigrated",
+      preferences: _prefs,
+      initialValue: false,
+    );
     privacyMode = BoolSettingsEntry(
       key: "privacyMode",
       preferences: _prefs,

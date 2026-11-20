@@ -22,10 +22,6 @@ class _MoneyFormattingPreferencesPageState
   @override
   Widget build(BuildContext context) {
     final bool preferFullAmounts = LocalPreferences().preferFullAmounts.get();
-    final bool useCurrencySymbol = LocalPreferences().useCurrencySymbol.get();
-    final bool showApproximatePrimaryAmount = LocalPreferences()
-        .showApproximatePrimaryAmount
-        .get();
     final bool hideZeroDecimals = UserPreferencesService().hideZeroDecimals;
 
     return Scaffold(
@@ -59,31 +55,6 @@ class _MoneyFormattingPreferencesPageState
               ),
               CheckboxListTile(
                 title: Text(
-                  "preferences.moneyFormatting.useCurrencySymbol".t(context),
-                ),
-                subtitle: Text(
-                  "preferences.moneyFormatting.useCurrencySymbol.description".t(
-                    context,
-                  ),
-                ),
-                value: useCurrencySymbol,
-                onChanged: updateUseCurrencySymbol,
-              ),
-              CheckboxListTile(
-                title: Text(
-                  "preferences.moneyFormatting.showApproximatePrimaryAmount".t(
-                    context,
-                  ),
-                ),
-                subtitle: Text(
-                  "preferences.moneyFormatting.showApproximatePrimaryAmount.description"
-                      .t(context),
-                ),
-                value: showApproximatePrimaryAmount,
-                onChanged: updateShowApproximatePrimaryAmount,
-              ),
-              CheckboxListTile(
-                title: Text(
                   "preferences.moneyFormatting.hideZeroDecimals".t(context),
                 ),
                 subtitle: Text(
@@ -112,26 +83,6 @@ class _MoneyFormattingPreferencesPageState
     if (newPreferFullAmounts == null) return;
 
     await LocalPreferences().preferFullAmounts.set(newPreferFullAmounts);
-
-    if (mounted) setState(() {});
-  }
-
-  void updateUseCurrencySymbol(bool? newUseCurrencySymbol) async {
-    if (newUseCurrencySymbol == null) return;
-
-    await LocalPreferences().useCurrencySymbol.set(newUseCurrencySymbol);
-
-    if (mounted) setState(() {});
-  }
-
-  void updateShowApproximatePrimaryAmount(
-    bool? newShowApproximatePrimaryAmount,
-  ) async {
-    if (newShowApproximatePrimaryAmount == null) return;
-
-    await LocalPreferences().showApproximatePrimaryAmount.set(
-      newShowApproximatePrimaryAmount,
-    );
 
     if (mounted) setState(() {});
   }

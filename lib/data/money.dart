@@ -165,6 +165,7 @@ class Money {
     Optional<String?>? customIcuPattern,
     int? decimalDigits,
   }) {
+    if (currency == "CNY") includeCurrency = false;
     final num amountToFormat = takeAbsoluteValue ? amount.abs() : amount;
     final String currencyToFormat = !includeCurrency ? "" : currency;
     useCurrencySymbol = useCurrencySymbol && includeCurrency;

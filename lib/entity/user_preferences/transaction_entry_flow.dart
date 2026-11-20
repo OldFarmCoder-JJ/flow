@@ -40,9 +40,8 @@ class TransactionEntryFlow {
   const TransactionEntryFlow.defaults()
     : actions = const [
         TransactionEntryAction.selectAccount,
-        TransactionEntryAction.selectCategoryOrTransferAccount,
         TransactionEntryAction.inputAmount,
-        TransactionEntryAction.inputTitle,
+        TransactionEntryAction.selectCategoryOrTransferAccount,
       ],
       skipSelectedFields = true,
       abandonUponActionCancelled = false;

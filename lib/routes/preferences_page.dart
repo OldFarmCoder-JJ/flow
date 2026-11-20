@@ -1,5 +1,6 @@
 import "dart:io";
 
+import "package:flow/routes/ledger_analysis_page.dart";
 import "package:flow/constants.dart";
 import "package:flow/l10n/flow_localizations.dart";
 import "package:flow/prefs/local_preferences.dart";
@@ -19,7 +20,6 @@ import "package:flow/utils/extensions.dart";
 import "package:flow/widgets/animated_eny_logo.dart";
 import "package:flow/widgets/general/directional_chevron.dart";
 import "package:flow/widgets/general/list_header.dart";
-import "package:flow/widgets/sheets/select_currency_sheet.dart";
 import "package:flutter/material.dart" hide Flow;
 import "package:go_router/go_router.dart";
 import "package:logging/logging.dart";
@@ -40,7 +40,6 @@ class PreferencesPage extends StatefulWidget {
 }
 
 class PreferencesPageState extends State<PreferencesPage> {
-  bool _currencyBusy = false;
   bool _languageBusy = false;
 
   bool _showLockApp = false;
@@ -77,9 +76,6 @@ class PreferencesPageState extends State<PreferencesPage> {
         .requireConfrimation
         .get();
 
-    final String currentPrimaryCurrency =
-        UserPreferencesService().primaryCurrency;
-
     final bool enyConnected = EnyService().isConnected;
 
     return Scaffold(
@@ -87,6 +83,26 @@ class PreferencesPageState extends State<PreferencesPage> {
       body: SafeArea(
         child: ListView(
           children: [
+            ListTile(
+              leading: const Icon(Icons.table_chart_outlined),
+              title: Text("sync.export.asCSV".t(context)),
+              onTap: () => context.push("/export/csv"),
+            ),
+            ListTile(
+              leading: const Icon(Icons.backup_outlined),
+              title: Text("tabs.profile.backup".t(context)),
+              onTap: () => context.push("/exportOptions"),
+            ),
+            ListTile(
+              leading: const Icon(Icons.insights_outlined),
+              title: const Text("AI 账本分析"),
+              subtitle: const Text("按月汇总，复制或分享给 ChatGPT"),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const LedgerAnalysisPage(),
+                ),
+              ),
+            ),
             ListHeader("preferences.general".t(context)),
             const SizedBox(height: 8.0),
             ListTile(
@@ -94,14 +110,6 @@ class PreferencesPageState extends State<PreferencesPage> {
               leading: const Icon(Symbols.language_rounded),
               onTap: () => _updateLanguage(),
               subtitle: Text(FlowLocalizations.of(context).locale.endonym),
-              trailing: const LeChevron(),
-            ),
-            ListTile(
-              title: Text("preferences.primaryCurrency".t(context)),
-
-              leading: const Icon(Symbols.universal_currency_alt_rounded),
-              onTap: () => _updatePrimaryCurrency(),
-              subtitle: Text(currentPrimaryCurrency),
               trailing: const LeChevron(),
             ),
             ListTile(
@@ -314,7 +322,7 @@ class PreferencesPageState extends State<PreferencesPage> {
     try {
       Locale current =
           LocalPreferences().localeOverride.get() ??
-          FlowLocalizations.supportedLocales.first;
+          Localizations.localeOf(context);
 
       final selected = await showModalBottomSheet<Locale>(
         context: context,
@@ -327,34 +335,6 @@ class PreferencesPageState extends State<PreferencesPage> {
       }
     } finally {
       _languageBusy = false;
-    }
-  }
-
-  void _updatePrimaryCurrency() async {
-    if (_currencyBusy) return;
-
-    setState(() {
-      _currencyBusy = true;
-    });
-
-    try {
-      final String current = UserPreferencesService().primaryCurrency;
-
-      final selected = await showModalBottomSheet<String>(
-        context: context,
-        builder: (context) => SelectCurrencySheet(currentlySelected: current),
-        isScrollControlled: true,
-      );
-
-      if (selected != null) {
-        UserPreferencesService().primaryCurrency = selected;
-      }
-    } finally {
-      _currencyBusy = false;
-
-      if (mounted) {
-        setState(() {});
-      }
     }
   }
 

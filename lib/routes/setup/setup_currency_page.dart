@@ -26,7 +26,9 @@ class SetupCurrencyPage extends StatefulWidget {
 }
 
 class _SetupCurrencyPageState extends State<SetupCurrencyPage> {
-  final String? _detectedCurrency = _detectCurrency();
+  final String? _detectedCurrency = Platform.isAndroid
+      ? "CNY"
+      : _detectCurrency();
 
   late final TextEditingController _textController = TextEditingController(
     text: _detectedCurrency ?? "~~~",

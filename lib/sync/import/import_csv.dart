@@ -41,7 +41,11 @@ class ImportCSV extends Importer {
 
   bool get ready => accountCurrencies.values.length >= data.accountNames.length;
 
-  ImportCSV(this.data);
+  ImportCSV(this.data) {
+    for (final name in data.accountNames) {
+      accountCurrencies[name] = "CNY";
+    }
+  }
 
   @override
   Future<String?> execute({bool ignoreSafetyBackupFail = false}) async {

@@ -1,5 +1,4 @@
 import "dart:async";
-import "dart:io";
 
 import "package:flow/data/actionable_nofications/actionable_notification.dart";
 import "package:flow/data/budget_progress.dart";
@@ -14,7 +13,6 @@ import "package:flow/services/sync/icloud_syncer.dart";
 import "package:flow/services/user_preferences.dart";
 import "package:flow/utils/should_execute_scheduled_task.dart";
 import "package:flutter/foundation.dart";
-import "package:in_app_review/in_app_review.dart";
 import "package:logging/logging.dart";
 import "package:moment_dart/moment_dart.dart";
 
@@ -58,8 +56,6 @@ class ActionableNotificationsService {
   /// Adds the following notifications:
   /// - Auto backup reminder
   /// - Budget alert
-  /// - Rate app
-  /// - Star on GitHub
   void checkAndAddNotifications() async {
     if (_notifications.value.isNotEmpty) {
       return;
@@ -72,61 +68,6 @@ class ActionableNotificationsService {
     }
 
     await tryAddBudgetAlert();
-
-    if (_notifications.value.isNotEmpty) {
-      return;
-    }
-
-    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
-      try {
-        final DateTime? lastRateAppShowedAt = TransitiveLocalPreferences()
-            .lastRateAppShowedAt
-            .get();
-
-        if (shouldExecuteScheduledTask(
-          Duration(days: 75),
-          lastRateAppShowedAt,
-        )) {
-          add(
-            RateApp(
-              payload: await InAppReview.instance.isAvailable().catchError(
-                (_) => false,
-              ),
-            ),
-          );
-          await TransitiveLocalPreferences().lastRateAppShowedAt.set(
-            Moment.now(),
-          );
-        }
-      } catch (e) {
-        _log.warning("Failed to evaluate RateApp actionable notification", e);
-      }
-    }
-
-    if (_notifications.value.isNotEmpty) {
-      return;
-    }
-
-    try {
-      final DateTime? lastStarOnGitHubShowedAt = TransitiveLocalPreferences()
-          .lastStarOnGitHubShowedAt
-          .get();
-
-      if (shouldExecuteScheduledTask(
-        Duration(days: 120),
-        lastStarOnGitHubShowedAt,
-      )) {
-        add(StarOnGitHub());
-        await TransitiveLocalPreferences().lastStarOnGitHubShowedAt.set(
-          Moment.now(),
-        );
-      }
-    } catch (e) {
-      _log.warning(
-        "Failed to evaluate StarOnGitHub actionable notification",
-        e,
-      );
-    }
 
     if (_notifications.value.isNotEmpty) {
       return;

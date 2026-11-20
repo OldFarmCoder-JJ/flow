@@ -31,7 +31,6 @@ import "package:flow/widgets/general/money_text.dart";
 import "package:flow/widgets/general/wavy_divider.dart";
 import "package:flow/widgets/select_color_scheme_list_tile.dart";
 import "package:flow/widgets/sheets/select_account_type_sheet.dart";
-import "package:flow/widgets/sheets/select_currency_sheet.dart";
 import "package:flow/widgets/sheets/select_flow_icon_sheet.dart";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
@@ -105,9 +104,7 @@ class _AccountEditPageState extends State<AccountEditPage> {
       );
       _balance = _currentlyEditing?.balance.amount ?? 0.0;
       _creditLimit = _currentlyEditing?.creditLimit ?? 0.0;
-      _currency =
-          _currentlyEditing?.currency ??
-          UserPreferencesService().primaryCurrency;
+      _currency = _currentlyEditing?.currency ?? "CNY";
       _iconData = _currentlyEditing?.icon;
       _excludeFromTotalBalance =
           _currentlyEditing?.excludeFromTotalBalance ?? false;
@@ -217,21 +214,7 @@ class _AccountEditPageState extends State<AccountEditPage> {
                   ),
                 ),
                 const SizedBox(height: 48.0),
-                ListTile(
-                  leading: Icon(Symbols.attach_money_rounded),
-                  title: Text("currency".t(context)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_currency, style: context.textTheme.labelLarge),
-                      if (widget.isNewAccount) ...[
-                        const SizedBox(width: 8.0),
-                        const LeChevron(),
-                      ],
-                    ],
-                  ),
-                  onTap: widget.isNewAccount ? selectCurrency : null,
-                ),
+
                 ListTile(
                   leading: Icon(Symbols.category_rounded),
                   title: Text("account.type".t(context)),
@@ -437,18 +420,6 @@ class _AccountEditPageState extends State<AccountEditPage> {
         _archived = value;
       });
     }
-  }
-
-  void selectCurrency() async {
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => const SelectCurrencySheet(),
-      isScrollControlled: true,
-    );
-
-    setState(() {
-      _currency = result ?? _currency;
-    });
   }
 
   void selectAccountType() async {

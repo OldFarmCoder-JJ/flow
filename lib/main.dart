@@ -141,6 +141,11 @@ void main() async {
   try {
     startupLog.fine("Initializing user preferences service");
     await UserPreferencesService().initialize();
+    final migration = LocalPreferences().ledgerThemeMigrated;
+    if (!migration.get()) {
+      UserPreferencesService().themeName = ledgerLight.name;
+      await migration.set(true);
+    }
   } catch (e) {
     startupLog.severe("Failed to initialize UserPreferencesService", e);
   }
@@ -215,7 +220,7 @@ class FlowState extends State<Flow> {
   Locale _locale = FlowLocalizations.supportedLocales.first;
   DateFormatPreset _dateFormatPreset = .system;
   String? _primaryCurrency;
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.light;
 
   ThemeFactory _themeFactory = ThemeFactory.fromThemeName(null);
 
@@ -488,8 +493,9 @@ class FlowState extends State<Flow> {
 
     final Locale overriddenLocale =
         LocalPreferences().localeOverride.value ??
-        favorableLocales.firstOrNull ??
-        _locale;
+        (Platform.isAndroid
+            ? const Locale("zh", "CN")
+            : favorableLocales.firstOrNull ?? _locale);
 
     _locale = Locale(
       overriddenLocale.languageCode,

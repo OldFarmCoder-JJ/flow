@@ -30,12 +30,21 @@ class _ExportOptionsPageState extends State<ExportOptionsPage> {
           );
 
     return Scaffold(
-      appBar: AppBar(title: Text("sync.export".t(context))),
+      appBar: AppBar(title: Text("tabs.profile.backup".t(context))),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
+              ActionCard(
+                onTap: () => context.push("/import"),
+                icon: FlowIconData.icon(Symbols.restore_rounded),
+                title: "sync.import".t(context),
+                subtitle: "setup.onboarding.importExisting.description".t(
+                  context,
+                ),
+              ),
+              const SizedBox(height: 16.0),
               ActionCard(
                 onTap: openSyncPreferences,
                 icon: FlowIconData.icon(Symbols.sync_rounded),
