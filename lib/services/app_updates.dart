@@ -91,13 +91,27 @@ class AppUpdateClient {
   static const _maxManifestBytes = 24 * 1024;
   static const _redirectCodes = {301, 302, 303, 307, 308};
 
-  Future<(http.StreamedResponse, Uri)> _open(Uri uri) async {
+  Future<(http.StreamedResponse, Uri)> _open(
+    Uri uri, {
+    int offset = 0,
+    UpdateDownloadCancellation? cancellation,
+  }) async {
     for (var redirects = 0; redirects <= 5; redirects++) {
-      final request = http.Request("GET", _httpsUri(uri))
-        ..followRedirects = false
-        ..headers["Cache-Control"] = "no-cache";
+      final request =
+          http.AbortableRequest(
+              "GET",
+              _httpsUri(uri),
+              abortTrigger: cancellation?._trigger.future,
+            )
+            ..followRedirects = false
+            ..headers["Accept-Encoding"] = "identity"
+            ..headers["Cache-Control"] = "no-cache";
+      if (offset > 0) request.headers["Range"] = "bytes=$offset-";
       final response = await _client.send(request).timeout(_timeout);
-      if (response.statusCode == 200) return (response, uri);
+      if (response.statusCode == 200 ||
+          (offset > 0 && {206, 416}.contains(response.statusCode))) {
+        return (response, uri);
+      }
 
       final location = response.headers["location"];
       await response.stream.listen(null).cancel();
@@ -126,21 +140,62 @@ class AppUpdateClient {
   Future<void> download(
     AppUpdateManifest update,
     File destination,
-    void Function(double) onProgress,
-  ) async {
+    void Function(double) onProgress, {
+    UpdateDownloadCancellation? cancellation,
+  }) async {
+    cancellation?._throwIfCancelled(update.apk);
     if (await destination.exists() && await _matches(update, destination)) {
       onProgress(1);
       return;
     }
 
     final partial = File("${destination.path}.part");
+    final identity = File("${partial.path}.identity");
+    final expectedIdentity = "${update.sha256Hex}:${update.sizeBytes}";
     await destination.parent.create(recursive: true);
+    var received = await partial.exists() ? await partial.length() : 0;
+    if (received > 0 &&
+        (!await identity.exists() ||
+            await identity.readAsString() != expectedIdentity ||
+            received > update.sizeBytes)) {
+      await partial.delete();
+      received = 0;
+    }
+    if (received == update.sizeBytes) {
+      if (await _matches(update, partial)) {
+        await partial.rename(destination.path);
+        if (await identity.exists()) await identity.delete();
+        onProgress(1);
+        return;
+      }
+      await partial.delete();
+      received = 0;
+    }
+
+    var (response, _) = await _open(
+      update.apk,
+      offset: received,
+      cancellation: cancellation,
+    );
+    final expectedRange =
+        "bytes $received-${update.sizeBytes - 1}/${update.sizeBytes}";
+    if (response.statusCode == 416 ||
+        (response.statusCode == 206 &&
+            response.headers["content-range"] != expectedRange)) {
+      await response.stream.listen(null).cancel();
+      (response, _) = await _open(update.apk, cancellation: cancellation);
+    }
+    if (response.statusCode == 200) received = 0;
+
     try {
-      final (response, _) = await _open(update.apk);
-      var received = 0;
-      final output = await partial.open(mode: FileMode.write);
+      await identity.writeAsString(expectedIdentity);
+      final output = await partial.open(
+        mode: received == 0 ? FileMode.write : FileMode.append,
+      );
       try {
+        onProgress(received / update.sizeBytes);
         await for (final chunk in response.stream.timeout(_timeout)) {
+          cancellation?._throwIfCancelled(update.apk);
           received += chunk.length;
           if (received > update.sizeBytes) {
             throw const FormatException("安装包大小与发布信息不符");
@@ -151,18 +206,38 @@ class AppUpdateClient {
       } finally {
         await output.close();
       }
+      cancellation?._throwIfCancelled(update.apk);
+      if (received < update.sizeBytes) {
+        throw const HttpException("下载中断，可以从上次的位置继续");
+      }
       if (!await _matches(update, partial)) {
         throw const FormatException("安装包校验失败，请检查服务器文件");
       }
       await partial.rename(destination.path);
-    } finally {
+      await identity.delete();
+    } on FormatException {
       if (await partial.exists()) await partial.delete();
+      if (await identity.exists()) await identity.delete();
+      rethrow;
     }
   }
 
   Future<bool> _matches(AppUpdateManifest update, File file) async =>
       await file.length() == update.sizeBytes &&
       (await sha256.bind(file.openRead()).first).toString() == update.sha256Hex;
+}
+
+/// Allows an interrupted download to leave its verified release identity on disk.
+class UpdateDownloadCancellation {
+  final _trigger = Completer<void>();
+
+  void cancel() {
+    if (!_trigger.isCompleted) _trigger.complete();
+  }
+
+  void _throwIfCancelled(Uri apk) {
+    if (_trigger.isCompleted) throw http.RequestAbortedException(apk);
+  }
 }
 
 enum UpdateInstallResult { installerOpened, permissionSettingsOpened }
@@ -173,15 +248,19 @@ class AndroidAppUpdates {
 
   static Future<UpdateInstallResult> downloadAndInstall(
     AppUpdateManifest update,
-    void Function(double) onProgress,
-  ) async {
+    void Function(double) onProgress, {
+    UpdateDownloadCancellation? cancellation,
+  }) async {
     if (_installing) throw StateError("正在处理另一个更新");
     _installing = true;
     final client = http.Client();
     try {
       final cache = await getTemporaryDirectory();
       final apk = File("${cache.path}/ledger-updates/update.apk");
-      await AppUpdateClient(client).download(update, apk, onProgress);
+      await AppUpdateClient(
+        client,
+      ).download(update, apk, onProgress, cancellation: cancellation);
+      cancellation?._throwIfCancelled(update.apk);
       final result = await _channel.invokeMethod<String>("install", {
         "versionCode": update.versionCode,
       });

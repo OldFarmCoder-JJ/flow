@@ -91,4 +91,98 @@ void main() {
     await api.download(update, apk, progress.add);
     expect(requests, 2);
   });
+
+  test(
+    "resume an interrupted download using the verified byte range",
+    () async {
+      final folder = await Directory.systemTemp.createTemp("ledger_resume_");
+      addTearDown(() => folder.delete(recursive: true));
+      final apk = File("${folder.path}/update.apk");
+      final update = AppUpdateManifest.parse(jsonEncode(release()), source);
+      final ranges = <String?>[];
+      final api = AppUpdateClient(
+        MockClient((request) async {
+          ranges.add(request.headers["range"]);
+          return switch (ranges.length) {
+            1 => http.Response.bytes(apkBytes.take(2).toList(), 200),
+            _ => http.Response.bytes(
+              apkBytes.skip(2).toList(),
+              206,
+              headers: {"content-range": "bytes 2-3/4"},
+            ),
+          };
+        }),
+      );
+
+      await expectLater(
+        api.download(update, apk, (_) {}),
+        throwsA(isA<HttpException>()),
+      );
+      expect(apk.existsSync(), isFalse);
+      final progress = <double>[];
+      await api.download(update, apk, progress.add);
+
+      expect(ranges, [null, "bytes=2-"]);
+      expect(progress.first, 0.5);
+      expect(apk.readAsBytesSync(), apkBytes);
+      expect(File("${apk.path}.part.identity").existsSync(), isFalse);
+    },
+  );
+
+  test("pause leaves the completed bytes for a later download", () async {
+    final folder = await Directory.systemTemp.createTemp("ledger_pause_");
+    addTearDown(() => folder.delete(recursive: true));
+    final apk = File("${folder.path}/update.apk");
+    final update = AppUpdateManifest.parse(jsonEncode(release()), source);
+    final cancellation = UpdateDownloadCancellation();
+    final api = AppUpdateClient(
+      MockClient.streaming((_, _) async {
+        final chunks = [apkBytes.take(2).toList(), apkBytes.skip(2).toList()];
+        return http.StreamedResponse(Stream.fromIterable(chunks), 200);
+      }),
+    );
+
+    await expectLater(
+      api.download(update, apk, (progress) {
+        if (progress >= 0.5) cancellation.cancel();
+      }, cancellation: cancellation),
+      throwsA(isA<http.RequestAbortedException>()),
+    );
+    expect(apk.existsSync(), isFalse);
+    expect(
+      File("${apk.path}.part").readAsBytesSync(),
+      apkBytes.take(2).toList(),
+    );
+  });
+
+  test("restart when a server sends an inconsistent content range", () async {
+    final folder = await Directory.systemTemp.createTemp("ledger_range_");
+    addTearDown(() => folder.delete(recursive: true));
+    final apk = File("${folder.path}/update.apk");
+    final update = AppUpdateManifest.parse(jsonEncode(release()), source);
+    final ranges = <String?>[];
+    final api = AppUpdateClient(
+      MockClient((request) async {
+        ranges.add(request.headers["range"]);
+        return switch (ranges.length) {
+          1 => http.Response.bytes(apkBytes.take(2).toList(), 200),
+          2 => http.Response.bytes(
+            [9, 9],
+            206,
+            headers: {"content-range": "bytes 1-2/4"},
+          ),
+          _ => http.Response.bytes(apkBytes, 200),
+        };
+      }),
+    );
+
+    await expectLater(
+      api.download(update, apk, (_) {}),
+      throwsA(isA<HttpException>()),
+    );
+    await api.download(update, apk, (_) {});
+
+    expect(ranges, [null, "bytes=2-", null]);
+    expect(apk.readAsBytesSync(), apkBytes);
+  });
 }

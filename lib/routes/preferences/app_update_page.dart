@@ -5,6 +5,7 @@ import "package:flow/prefs/local_preferences.dart";
 import "package:flow/services/app_updates.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
+import "package:http/http.dart" as http;
 import "package:package_info_plus/package_info_plus.dart";
 
 /// Configures the update source, checks for releases and starts installation.
@@ -26,11 +27,14 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
   late AppUpdateManifest? _available = widget.initialUpdate;
   bool _busy = false;
   bool _downloaded = false;
+  bool _canContinue = false;
+  UpdateDownloadCancellation? _downloadCancellation;
   double? _progress;
   String? _notice;
 
   @override
   void dispose() {
+    _downloadCancellation?.cancel();
     _address.dispose();
     super.dispose();
   }
@@ -43,6 +47,7 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
       _available = null;
       _notice = null;
       _downloaded = false;
+      _canContinue = false;
     });
 
     try {
@@ -72,6 +77,8 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
   }
 
   Future<void> _install(AppUpdateManifest update) async {
+    final cancellation = UpdateDownloadCancellation();
+    _downloadCancellation = cancellation;
     setState(() {
       _busy = true;
       _progress = 0;
@@ -88,17 +95,31 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
           return;
         }
         setState(() => _progress = progress);
-      });
+      }, cancellation: cancellation);
       if (!mounted) return;
       setState(() {
         _downloaded = true;
+        _canContinue = false;
         _notice = result == UpdateInstallResult.permissionSettingsOpened
             ? "开启「允许安装应用」后返回，再点「安装更新」"
             : "请在安卓安装界面确认更新";
       });
     } catch (error) {
-      if (mounted) setState(() => _notice = _describe(error));
+      if (mounted) {
+        setState(() {
+          _canContinue =
+              error is http.ClientException ||
+              error is HttpException ||
+              error is TimeoutException;
+          _notice = switch (error) {
+            http.RequestAbortedException() => "已暂停，稍后可以继续下载",
+            http.ClientException() || TimeoutException() => "网络连接中断，可以继续下载",
+            _ => _describe(error),
+          };
+        });
+      }
     } finally {
+      _downloadCancellation = null;
       if (mounted) {
         setState(() {
           _busy = false;
@@ -166,6 +187,7 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
                       _available = null;
                       _notice = null;
                       _downloaded = false;
+                      _canContinue = false;
                     });
                   }
                 },
@@ -198,7 +220,13 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
                 ),
               FilledButton(
                 onPressed: _busy ? null : () => _install(update),
-                child: Text(_downloaded ? "安装更新" : "下载并安装"),
+                child: Text(
+                  _downloaded
+                      ? "安装更新"
+                      : _canContinue
+                      ? "继续下载"
+                      : "下载并安装",
+                ),
               ),
             ],
             if (progress != null) ...[
@@ -208,6 +236,11 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
               Text(
                 progress >= 1 ? "正在核验安装包" : "下载中 ${(progress * 100).floor()}%",
               ),
+              if (progress < 1)
+                TextButton(
+                  onPressed: _downloadCancellation?.cancel,
+                  child: const Text("暂停下载"),
+                ),
             ],
           ],
         ),
