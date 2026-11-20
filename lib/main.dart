@@ -33,6 +33,8 @@ import "package:flow/providers/accounts_provider.dart";
 import "package:flow/providers/categories_provider.dart";
 import "package:flow/providers/transaction_tags_provider.dart";
 import "package:flow/routes.dart";
+import "package:flow/routes/preferences/app_update_page.dart";
+import "package:flow/services/app_updates.dart";
 import "package:flow/services/currency_registry.dart";
 import "package:flow/services/exchange_rates.dart";
 import "package:flow/services/in_app_purchase.dart";
@@ -216,6 +218,10 @@ class Flow extends StatefulWidget {
 
 class FlowState extends State<Flow> {
   late final AppLifecycleListener _appLifeCycleListener;
+  final _updateMessenger = GlobalKey<ScaffoldMessengerState>();
+  String? _lastUpdateSource;
+  DateTime? _lastUpdateCheck;
+  int? _announcedUpdate;
 
   Locale _locale = FlowLocalizations.supportedLocales.first;
   DateFormatPreset _dateFormatPreset = .system;
@@ -298,6 +304,7 @@ class FlowState extends State<Flow> {
       );
 
       unawaited(SiriPendingService().resolveSiriTransactions());
+      unawaited(_checkForAndroidUpdate());
     });
 
     _tryUnlockTempLock();
@@ -315,6 +322,7 @@ class FlowState extends State<Flow> {
       },
       onResume: () {
         _unobscure();
+        unawaited(_checkForAndroidUpdate());
       },
       onShow: () {
         if (!mounted) return;
@@ -368,6 +376,7 @@ class FlowState extends State<Flow> {
       supportedLocales: FlowLocalizations.supportedLocales,
       locale: _locale,
       routerConfig: router,
+      scaffoldMessengerKey: _updateMessenger,
       theme: _themeFactory.materialTheme,
       themeMode: _themeMode,
       debugShowCheckedModeBanner: false,
@@ -453,6 +462,64 @@ class FlowState extends State<Flow> {
         }
       },
     );
+  }
+
+  Future<void> _checkForAndroidUpdate() async {
+    if (!Platform.isAndroid || !mounted || _tempLock) return;
+    final preferences = LocalPreferences();
+    final source = preferences.updateSource.value;
+    if (source == null ||
+        source.isEmpty ||
+        !preferences.completedInitialSetup.get()) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final lastCheck = _lastUpdateCheck;
+    if (_lastUpdateSource == source &&
+        lastCheck != null &&
+        now.difference(lastCheck) < const Duration(minutes: 30)) {
+      return;
+    }
+    _lastUpdateSource = source;
+    _lastUpdateCheck = now;
+
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final update = await checkAppUpdate(
+        parseUpdateSource(source),
+        int.parse(info.buildNumber),
+      );
+      if (!mounted ||
+          _tempLock ||
+          preferences.updateSource.value != source ||
+          update == null ||
+          _announcedUpdate == update.versionCode) {
+        return;
+      }
+      final messenger = _updateMessenger.currentState;
+      if (messenger == null) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text("发现新版 ${update.version}"),
+          action: SnackBarAction(
+            label: "查看",
+            onPressed: () {
+              if (_tempLock) return;
+              globalNavigatorKey.currentState?.push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AppUpdatePage(initialUpdate: update),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      _announcedUpdate = update.versionCode;
+    } catch (error) {
+      // A disconnected update server should never block startup or bookkeeping.
+      mainLogger.fine("Automatic update check failed", error);
+    }
   }
 
   void _reloadTheme() {
@@ -616,6 +683,7 @@ class FlowState extends State<Flow> {
 
       if (mounted) {
         setState(() {});
+        if (authenticated) unawaited(_checkForAndroidUpdate());
       }
     } catch (e) {
       mainLogger.severe("Failed to initialize LocalAuthService", e);

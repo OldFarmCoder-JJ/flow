@@ -4,6 +4,7 @@ import "package:flow/routes/ledger_analysis_page.dart";
 import "package:flow/constants.dart";
 import "package:flow/l10n/flow_localizations.dart";
 import "package:flow/prefs/local_preferences.dart";
+import "package:flow/routes/preferences/app_update_page.dart";
 import "package:flow/routes/preferences/language_selection_sheet.dart";
 import "package:flow/routes/preferences/sections/haptics.dart";
 import "package:flow/routes/preferences/sections/lock_app.dart";
@@ -103,6 +104,16 @@ class PreferencesPageState extends State<PreferencesPage> {
                 ),
               ),
             ),
+            if (Platform.isAndroid)
+              ListTile(
+                leading: const Icon(Icons.system_update_outlined),
+                title: const Text("应用更新"),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AppUpdatePage(),
+                  ),
+                ),
+              ),
             ListHeader("preferences.general".t(context)),
             const SizedBox(height: 8.0),
             ListTile(

@@ -8,6 +8,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity: FlutterFragmentActivity() {
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
+    registerLedgerUpdater(flutterEngine.dartExecutor.binaryMessenger)
 
     MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mn.flow.flow/window")
       .setMethodCallHandler { call, result ->

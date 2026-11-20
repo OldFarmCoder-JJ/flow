@@ -25,6 +25,7 @@ class LocalPreferences {
   /// Main currency used in the app
   late final PrimitiveSettingsEntry<String> primaryCurrency;
   late final PrimitiveSettingsEntry<String> lastEntryAccountUuid;
+  late final PrimitiveSettingsEntry<String> updateSource;
 
   /// Whether to use phone numpad layout
   ///
@@ -88,6 +89,14 @@ class LocalPreferences {
     lastEntryAccountUuid = PrimitiveSettingsEntry<String>(
       key: "lastEntryAccountUuid",
       preferences: _prefs,
+    );
+    updateSource = PrimitiveSettingsEntry<String>(
+      key: "updateSource",
+      preferences: _prefs,
+      initialValue: const String.fromEnvironment(
+        "LEDGER_UPDATE_URL",
+        defaultValue: "https://idc-learn.top/ledger-updates/latest.json",
+      ),
     );
     usePhoneNumpadLayout = BoolSettingsEntry(
       key: "usePhoneNumpadLayout",
