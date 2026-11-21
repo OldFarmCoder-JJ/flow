@@ -10,13 +10,10 @@ import "package:flow/l10n/named_enum.dart";
 import "package:flow/objectbox.dart";
 import "package:flow/objectbox/actions.dart";
 import "package:flow/objectbox/objectbox.g.dart";
-import "package:flow/prefs/local_preferences.dart";
 import "package:flow/providers/accounts_provider.dart";
 import "package:flow/providers/categories_provider.dart";
 import "package:flow/providers/transaction_tags_provider.dart";
-import "package:flow/services/currency_registry.dart";
 import "package:flow/utils/optional.dart";
-import "package:flow/widgets/sheets/select_multi_currency_sheet.dart";
 import "package:flow/widgets/sheets/select_multi_transaction_type_sheet.dart";
 import "package:flow/widgets/sheets/select_transaction_tags_sheet.dart";
 import "package:flow/widgets/transaction_filter_head.dart";
@@ -59,8 +56,6 @@ class _DefaultTransactionsFilterHeadState
     extends State<DefaultTransactionsFilterHead> {
   late TransactionFilter _filter;
 
-  late bool showCurrencyFilterChip;
-
   late final Stream<List<TransactionFilterPreset>> _presets =
       transactionFilterPresetsQb()
           .watch(triggerImmediately: true)
@@ -76,12 +71,6 @@ class _DefaultTransactionsFilterHeadState
   void initState() {
     super.initState();
     _filter = widget.current;
-
-    TransitiveLocalPreferences().usesMultipleCurrencies.addListener(
-      _updateShowCurrencyFilterChip,
-    );
-    showCurrencyFilterChip = TransitiveLocalPreferences().usesMultipleCurrencies
-        .get();
   }
 
   @override
@@ -90,14 +79,6 @@ class _DefaultTransactionsFilterHeadState
       _filter = widget.current;
     }
     super.didUpdateWidget(oldWidget);
-  }
-
-  @override
-  void dispose() {
-    TransitiveLocalPreferences().usesMultipleCurrencies.removeListener(
-      _updateShowCurrencyFilterChip,
-    );
-    super.dispose();
   }
 
   QueryBuilder<TransactionFilterPreset> transactionFilterPresetsQb() =>
@@ -233,16 +214,6 @@ class _DefaultTransactionsFilterHeadState
                     ? _filter.types!
                     : null,
               ),
-              if (showCurrencyFilterChip)
-                TransactionFilterChip<List<String>>(
-                  translationKey: "transactions.query.filter.currency",
-                  avatar: const Icon(Symbols.universal_currency_alt_rounded),
-                  onSelect: onSelectCurrency,
-                  defaultValue: widget.defaultFilter.currencies,
-                  value: _filter.currencies?.isNotEmpty == true
-                      ? _filter.currencies
-                      : null,
-                ),
               TransactionFilterChip<TransactionGroupRange>(
                 translationKey: "transactions.query.filter.groupBy",
                 avatar: const Icon(Symbols.atr_rounded),
@@ -383,34 +354,6 @@ class _DefaultTransactionsFilterHeadState
     }
   }
 
-  void onSelectCurrency() async {
-    final Set<String> possibleCurrencies = ObjectBox()
-        .getAccounts()
-        .map((account) => account.currency)
-        .toSet();
-
-    final List<String>? newCurrencies =
-        await showModalBottomSheet<List<String>>(
-          context: context,
-          builder: (context) => SelectMultiCurrencySheet(
-            currencies: possibleCurrencies
-                .map(
-                  (code) => CurrencyRegistryService().groupedCurrencies[code],
-                )
-                .nonNulls
-                .toList(),
-            currentlySelected: filter.currencies,
-          ),
-          isScrollControlled: true,
-        );
-
-    if (newCurrencies != null) {
-      setState(() {
-        filter = filter.copyWithOptional(currencies: Optional(newCurrencies));
-      });
-    }
-  }
-
   void onSelectGroupBy() async {
     final TransactionGroupRange? newGroupBy =
         await showModalBottomSheet<TransactionGroupRange>(
@@ -466,13 +409,6 @@ class _DefaultTransactionsFilterHeadState
     setState(() {
       filter = filter.copyWithOptional(isPending: isPending);
     });
-  }
-
-  void _updateShowCurrencyFilterChip() {
-    showCurrencyFilterChip = TransitiveLocalPreferences().usesMultipleCurrencies
-        .get();
-    if (!mounted) return;
-    setState(() {});
   }
 
   void _saveNewFilterPreset() async {

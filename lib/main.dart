@@ -48,14 +48,13 @@ import "package:flow/services/transactions.dart";
 import "package:flow/services/user_preferences.dart";
 import "package:flow/services/home_widgets.dart";
 import "package:flow/theme/color_themes/registry.dart";
-import "package:flow/theme/flow_color_scheme.dart";
 import "package:flow/theme/theme.dart";
+import "package:flow/theme/ledger_appearance.dart";
 import "package:flow/utils/android/set_secure_window.dart";
 import "package:flow/widgets/flow_themes.dart";
 import "package:flow/widgets/general/flow_icon.dart";
 import "package:flutter/material.dart";
 import "package:flutter/scheduler.dart";
-import "package:flutter/services.dart";
 import "package:flutter_localizations/flutter_localizations.dart";
 import "package:flutter_quill/flutter_quill.dart";
 import "package:intl/intl.dart";
@@ -67,7 +66,6 @@ import "package:package_info_plus/package_info_plus.dart";
 import "package:path/path.dart" as path;
 import "package:path_provider/path_provider.dart"
     show getApplicationSupportDirectory;
-import "package:shake/shake.dart";
 import "package:window_manager/window_manager.dart";
 
 RotatingFileAppender? mainLogAppender;
@@ -143,11 +141,6 @@ void main() async {
   try {
     startupLog.fine("Initializing user preferences service");
     await UserPreferencesService().initialize();
-    final migration = LocalPreferences().ledgerThemeMigrated;
-    if (!migration.get()) {
-      UserPreferencesService().themeName = ledgerLight.name;
-      await migration.set(true);
-    }
   } catch (e) {
     startupLog.severe("Failed to initialize UserPreferencesService", e);
   }
@@ -167,15 +160,9 @@ void main() async {
     );
   }
 
-  // Must run after [UserPreferencesService] has loaded from ObjectBox
-  unawaited(
-    TransitiveLocalPreferences().sessionPrivacyMode
-        .set(UserPreferencesService().privacyModeUponLaunch)
-        .catchError((error) {
-          startupLog.warning("Failed to seed session privacy mode", error);
-          return false;
-        }),
-  );
+  // Clear a session mask saved by older versions before the first frame.
+  final mask = TransitiveLocalPreferences().sessionPrivacyMode;
+  if (mask.get()) await mask.set(false);
 
   // Depends on [UserPreferencesService] for the primary currency
   startupLog.fine("Initializing exchange rates service");
@@ -243,7 +230,9 @@ class FlowState extends State<Flow> {
   String? _primaryCurrency;
   ThemeMode _themeMode = ThemeMode.light;
 
-  ThemeFactory _themeFactory = ThemeFactory.fromThemeName(null);
+  final _lightTheme = ThemeFactory(ledgerLight);
+  final _darkTheme = ThemeFactory(ledgerDark);
+  Timer? _appearanceTimer;
 
   ThemeMode get themeMode => _themeMode;
 
@@ -252,11 +241,7 @@ class FlowState extends State<Flow> {
   /// Blurs the app switcher snapshot on iOS while app lock is on.
   bool _obscured = false;
 
-  bool get useDarkTheme => (_themeMode == ThemeMode.system
-      ? (PlatformDispatcher.instance.platformBrightness == Brightness.dark)
-      : (_themeMode == ThemeMode.dark));
-
-  ShakeDetector? detector;
+  bool get useDarkTheme => _themeMode == ThemeMode.dark;
 
   /// Debounces `_synchronizePlannedNotifications` so a burst of
   /// `TransactionsService` updates (recurring catch-up, bulk import, etc.)
@@ -274,8 +259,7 @@ class FlowState extends State<Flow> {
     _reloadLocale();
     _reloadTheme();
 
-    UserPreferencesService().valueNotifier.addListener(_reloadTheme);
-    UserPreferencesService().valueNotifier.addListener(_listenToShakes);
+    LocalPreferences().ledgerAppearance.addListener(_reloadTheme);
     UserPreferencesService().valueNotifier.addListener(_syncWidgets);
     UserPreferencesService().valueNotifier.addListener(_reloadDateFormat);
 
@@ -299,7 +283,6 @@ class FlowState extends State<Flow> {
       migrateRemoveTitleFromUntitledTransactions();
       migratePrimaryCurrencyToDb();
       migrateThemePrefsToDb();
-      migratePrivacyPreferencesToUserPreferences();
       migrateHomePendingTransactionsRange();
       unawaited(migrateSimpleIconsToSlug());
 
@@ -324,8 +307,6 @@ class FlowState extends State<Flow> {
 
     _tryUnlockTempLock();
 
-    _listenToShakes();
-
     _appLifeCycleListener = AppLifecycleListener(
       onInactive: () {
         _obscure();
@@ -336,6 +317,7 @@ class FlowState extends State<Flow> {
         _tryTempLock();
       },
       onResume: () {
+        _reloadTheme();
         _unobscure();
         unawaited(_checkForAndroidUpdate());
       },
@@ -359,8 +341,7 @@ class FlowState extends State<Flow> {
     UserPreferencesService().valueNotifier.removeListener(
       _refreshExchangeRates,
     );
-    UserPreferencesService().valueNotifier.removeListener(_reloadTheme);
-    UserPreferencesService().valueNotifier.removeListener(_listenToShakes);
+    LocalPreferences().ledgerAppearance.removeListener(_reloadTheme);
     UserPreferencesService().valueNotifier.removeListener(_syncWidgets);
     UserPreferencesService().valueNotifier.removeListener(_reloadDateFormat);
 
@@ -371,7 +352,7 @@ class FlowState extends State<Flow> {
 
     _appLifeCycleListener.dispose();
 
-    _stopListeningToShakes();
+    _appearanceTimer?.cancel();
 
     super.dispose();
   }
@@ -392,7 +373,8 @@ class FlowState extends State<Flow> {
       locale: _locale,
       routerConfig: router,
       scaffoldMessengerKey: _updateMessenger,
-      theme: _themeFactory.materialTheme,
+      theme: _lightTheme.materialTheme,
+      darkTheme: _darkTheme.materialTheme,
       themeMode: _themeMode,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
@@ -444,37 +426,6 @@ class FlowState extends State<Flow> {
             ),
           ),
         );
-      },
-    );
-  }
-
-  void _stopListeningToShakes() {
-    mainLogger.fine(
-      "Stopping shake detection privacy mode (${detector != null})",
-    );
-    detector?.stopListening();
-    detector = null;
-  }
-
-  void _listenToShakes() {
-    _stopListeningToShakes();
-
-    if (!UserPreferencesService().privacyModeUponShaking) {
-      return;
-    }
-
-    if (!(Platform.isAndroid || Platform.isIOS)) {
-      return;
-    }
-
-    mainLogger.fine("Starting shake detection privacy mode");
-
-    detector = ShakeDetector.autoStart(
-      onPhoneShake: (_) {
-        TransitiveLocalPreferences().sessionPrivacyMode.set(true);
-        if (LocalPreferences().enableHapticFeedback.get()) {
-          HapticFeedback.mediumImpact();
-        }
       },
     );
   }
@@ -536,24 +487,17 @@ class FlowState extends State<Flow> {
   }
 
   void _reloadTheme() {
-    final String? themeName = UserPreferencesService().value.themeName;
-
-    if (_themeFactory.flowColorScheme.name == themeName) {
-      return;
-    }
-
-    if (validateThemeName(themeName)) {
-      themeLogger.info("Reloading $themeName");
-
-      FlowColorScheme theme = getTheme(themeName, preferDark: useDarkTheme);
-
-      setState(() {
-        _themeMode = theme.mode;
-        _themeFactory = ThemeFactory(theme);
-      });
-    } else {
-      themeLogger.warning(
-        "Invalid theme name: $themeName, falling back to null",
+    _appearanceTimer?.cancel();
+    final now = DateTime.now();
+    final appearance = LedgerAppearance.fromName(
+      LocalPreferences().ledgerAppearance.value,
+    );
+    final mode = appearance.modeAt(now);
+    if (mode != _themeMode) setState(() => _themeMode = mode);
+    if (appearance == LedgerAppearance.automatic) {
+      _appearanceTimer = Timer(
+        appearance.nextBoundary(now).difference(now),
+        _reloadTheme,
       );
     }
   }
@@ -630,7 +574,9 @@ class FlowState extends State<Flow> {
 
     _primaryCurrency = primaryCurrency;
 
-    ExchangeRatesService().tryFetchRates(primaryCurrency);
+    if (TransitiveLocalPreferences().usesNonPrimaryCurrency.get()) {
+      ExchangeRatesService().tryFetchRates(primaryCurrency);
+    }
   }
 
   void _syncWidgets() {

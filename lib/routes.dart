@@ -35,7 +35,6 @@ import "package:flow/routes/preferences/button_order_preferences_page.dart";
 import "package:flow/routes/preferences/change_preferences_page.dart";
 import "package:flow/routes/preferences/date_format_preferences_page.dart";
 import "package:flow/routes/preferences/integrations/eny_preferences_page.dart";
-import "package:flow/routes/preferences/money_formatting_preferences_page.dart";
 import "package:flow/routes/preferences/numpad_preferences_page.dart";
 import "package:flow/routes/preferences/pending_transactions_preferences_page.dart";
 import "package:flow/routes/preferences/reminders_preferences_page.dart";
@@ -50,7 +49,6 @@ import "package:flow/routes/preferences_page.dart";
 import "package:flow/routes/profile_page.dart";
 import "package:flow/routes/setup/setup_accounts_page.dart";
 import "package:flow/routes/setup/setup_categories_page.dart";
-import "package:flow/routes/setup/setup_currency_page.dart";
 import "package:flow/routes/setup/setup_onboarding_page.dart";
 import "package:flow/routes/setup/setup_profile_page.dart";
 import "package:flow/routes/setup/setup_profile_picture_page.dart";
@@ -112,10 +110,8 @@ final GoRouter router = GoRouter(
     GoRoute(path: "/", builder: (context, state) => const HomePage()),
     GoRoute(
       path: "/transaction/quick",
-      pageBuilder: (context, state) => const MaterialPage(
-        fullscreenDialog: true,
-        child: QuickEntryPage(),
-      ),
+      pageBuilder: (context, state) =>
+          const MaterialPage(fullscreenDialog: true, child: QuickEntryPage()),
     ),
     GoRoute(
       path: "/transaction/new",
@@ -345,10 +341,6 @@ final GoRouter router = GoRouter(
           builder: (context, state) => const ChangeVisualsPreferencesPage(),
         ),
         GoRoute(
-          path: "moneyFormatting",
-          builder: (context, state) => const MoneyFormattingPreferencesPage(),
-        ),
-        GoRoute(
           path: "dateFormat",
           builder: (context, state) => const DateFormatPreferencesPage(),
         ),
@@ -500,10 +492,6 @@ final GoRouter router = GoRouter(
         GoRoute(
           path: "choose",
           builder: (context, state) => const SetupOnboardingPage(),
-        ),
-        GoRoute(
-          path: "currency",
-          builder: (context, state) => const SetupCurrencyPage(),
         ),
         GoRoute(
           path: "accounts",

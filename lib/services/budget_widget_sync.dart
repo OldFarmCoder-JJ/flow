@@ -9,7 +9,6 @@ import "package:flow/l10n/extensions.dart";
 import "package:flow/prefs/local_preferences.dart";
 import "package:flow/services/budget.dart";
 import "package:flow/services/exchange_rates.dart";
-import "package:flow/services/user_preferences.dart";
 import "package:flow/utils/extensions.dart";
 import "package:home_widget/home_widget.dart";
 import "package:intl/intl.dart";
@@ -104,9 +103,7 @@ class BudgetWidgetSync {
 
       final Map<String, dynamic> payload = await buildPayload(
         rates: rates,
-        obscureAmounts:
-            UserPreferencesService().privacyModeUponLaunch ||
-            LocalPreferences().requireLocalAuth.get(),
+        obscureAmounts: LocalPreferences().requireLocalAuth.get(),
       );
 
       if (Platform.isIOS) {

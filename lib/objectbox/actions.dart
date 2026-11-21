@@ -94,6 +94,8 @@ extension MainActions on ObjectBox {
         .where((account) => account.currency != primaryCurrency)
         .toList();
 
+    if (nonPrimaryCurrencyAccounts.isEmpty) return total;
+
     final ExchangeRates? rates = await ExchangeRatesService().tryFetchRates(
       primaryCurrency,
     );

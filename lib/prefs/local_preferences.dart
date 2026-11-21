@@ -25,6 +25,7 @@ class LocalPreferences {
   /// Main currency used in the app
   late final PrimitiveSettingsEntry<String> primaryCurrency;
   late final PrimitiveSettingsEntry<String> lastEntryAccountUuid;
+
   /// Release manifest used on first launch and for manual checks.
   static const defaultUpdateSource = String.fromEnvironment(
     "LEDGER_UPDATE_URL",
@@ -56,6 +57,7 @@ class LocalPreferences {
 
   late final BoolSettingsEntry autoAttachTransactionGeo;
 
+  late final PrimitiveSettingsEntry<String> ledgerAppearance;
   late final BoolSettingsEntry ledgerThemeMigrated;
   late final BoolSettingsEntry ledgerEntryNamesMigrated;
   late final BoolSettingsEntry privacyMode;
@@ -146,6 +148,10 @@ class LocalPreferences {
       initialValue: false,
     );
 
+    ledgerAppearance = PrimitiveSettingsEntry<String>(
+      key: "ledgerAppearance",
+      preferences: _prefs,
+    );
     ledgerThemeMigrated = BoolSettingsEntry(
       key: "ledgerThemeMigrated",
       preferences: _prefs,

@@ -3,7 +3,6 @@ import "dart:async";
 import "package:flow/constants.dart";
 import "package:flow/l10n/extensions.dart";
 import "package:flow/objectbox.dart";
-import "package:flow/prefs/local_preferences.dart";
 import "package:flow/services/exchange_rates.dart";
 import "package:flow/services/notifications.dart";
 import "package:flow/services/sync/icloud_syncer.dart";
@@ -42,30 +41,6 @@ class _ProfileTabState extends State<ProfileTab> {
           const Center(child: ProfileCard()),
           const SizedBox(height: 24.0),
           ListTile(
-            title: Text("tabs.stats.insights".t(context)),
-            leading: const Icon(Symbols.insights_rounded),
-            trailing: LocalPreferences().openedInsightsIndex.get()
-                ? null
-                : Badge(
-                    label: Text("general.new".t(context)),
-                    backgroundColor: context.colorScheme.primary,
-                    textColor: context.colorScheme.onPrimary,
-                  ),
-            onTap: () {
-              final entry = LocalPreferences().openedInsightsIndex;
-              if (!entry.get()) {
-                entry.set(true);
-                setState(() {});
-              }
-              context.push("/stats/insights");
-            },
-          ),
-          ListTile(
-            title: Text("accounts".t(context)),
-            leading: const Icon(Symbols.wallet_rounded),
-            onTap: () => context.push("/accounts"),
-          ),
-          ListTile(
             title: Text("categories".t(context)),
             leading: const Icon(Symbols.category_rounded),
             onTap: () => context.push("/categories"),
@@ -75,11 +50,6 @@ class _ProfileTabState extends State<ProfileTab> {
             leading: const Icon(Symbols.money_bag_rounded),
             onTap: () => context.push("/budgets"),
           ),
-          // ListTile(
-          //   title: Text("goals".t(context)),
-          //   leading: const Icon(Symbols.savings_rounded),
-          //   onTap: () => context.push("/goals"),
-          // ),
           ListTile(
             title: Text("transaction.tags".t(context)),
             leading: const Icon(Symbols.style_rounded),
@@ -197,19 +167,6 @@ class _ProfileTabState extends State<ProfileTab> {
           const SizedBox(height: 64.0),
           Center(
             child: Text("v$appVersion", style: context.textTheme.labelSmall),
-          ),
-          Center(
-            child: InkWell(
-              borderRadius: .circular(8.0),
-              onTap: () => openUrl(maintainerGitHubLink),
-              child: Opacity(
-                opacity: 0.5,
-                child: Text(
-                  "tabs.profile.withLoveFromTheCreator".t(context),
-                  style: context.textTheme.labelSmall,
-                ),
-              ),
-            ),
           ),
           const SizedBox(height: 24.0),
           const SizedBox(height: 96.0),

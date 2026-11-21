@@ -1,3 +1,4 @@
+import "package:flow/data/ledger_stats.dart" show ledgerCurrency;
 import "package:flow/entity/budget.dart";
 import "package:flow/entity/category.dart";
 import "package:flow/form_validators.dart";
@@ -8,7 +9,6 @@ import "package:flow/objectbox/objectbox.g.dart";
 import "package:flow/routes/error_page.dart";
 import "package:flow/routes/transaction_page/input_amount_sheet.dart";
 import "package:flow/services/budget.dart";
-import "package:flow/services/user_preferences.dart";
 import "package:flow/theme/theme.dart";
 import "package:flow/utils/utils.dart";
 import "package:flow/widgets/budgets/budget_category_chips.dart";
@@ -20,7 +20,6 @@ import "package:flow/widgets/general/info_text.dart";
 import "package:flow/widgets/general/money_text.dart";
 import "package:flow/widgets/general/surface.dart";
 import "package:flow/data/money.dart";
-import "package:flow/widgets/sheets/select_currency_sheet.dart";
 import "package:flow/widgets/time_range_selector.dart";
 import "package:flow/widgets/transaction_filter_head/select_multi_category_sheet.dart";
 import "package:flutter/foundation.dart" hide Category;
@@ -84,9 +83,7 @@ class _BudgetPageState extends State<BudgetPage> {
       error = "Budget with id ${widget.budgetId} was not found";
     } else {
       _amount = _currentlyEditing?.amount ?? 0.0;
-      _currency =
-          _currentlyEditing?.currency ??
-          UserPreferencesService().primaryCurrency;
+      _currency = _currentlyEditing?.currency ?? ledgerCurrency;
       // Show the period the budget is tracking right now, not its anchor — for
       // a renewing budget those diverge as soon as the first period rolls over,
       // and "July 2026" on an August budget reads as a bug.
@@ -182,8 +179,6 @@ class _BudgetPageState extends State<BudgetPage> {
             ),
           ),
         ),
-        const SizedBox(height: 8.0),
-        _buildCurrencyChip(context),
         const SizedBox(height: 12.0),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -212,38 +207,6 @@ class _BudgetPageState extends State<BudgetPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildCurrencyChip(BuildContext context) {
-    return Material(
-      color: context.colorScheme.onSurface.withAlpha(0x14),
-      shape: const StadiumBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: selectCurrency,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12.0, 4.0, 8.0, 4.0),
-          child: Row(
-            mainAxisSize: .min,
-            spacing: 4.0,
-            children: [
-              const Icon(Symbols.universal_currency_alt_rounded, size: 16.0),
-              Text(
-                _currency,
-                style: context.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.6,
-                ),
-              ),
-              IconTheme.merge(
-                data: const IconThemeData(size: 16.0),
-                child: const LeChevron(),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -379,20 +342,6 @@ class _BudgetPageState extends State<BudgetPage> {
     if (result == null) return;
 
     _amount = result.abs();
-
-    if (mounted) setState(() {});
-  }
-
-  Future<void> selectCurrency() async {
-    final String? result = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => SelectCurrencySheet(currentlySelected: _currency),
-      isScrollControlled: true,
-    );
-
-    if (result == null) return;
-
-    _currency = result;
 
     if (mounted) setState(() {});
   }

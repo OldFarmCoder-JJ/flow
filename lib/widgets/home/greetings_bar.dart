@@ -4,7 +4,6 @@ import "package:flow/l10n/extensions.dart";
 import "package:flow/objectbox.dart";
 import "package:flow/objectbox/objectbox.g.dart";
 import "package:flow/widgets/general/profile_picture.dart";
-import "package:flow/widgets/home/privacy_toggler.dart";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 
@@ -45,7 +44,6 @@ class GreetingsBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12.0),
-            const PrivacyToggler(),
           ],
         );
       },

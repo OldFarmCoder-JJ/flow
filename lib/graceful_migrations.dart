@@ -91,43 +91,6 @@ void migratePrimaryCurrencyToDb() async {
   }
 }
 
-void migratePrivacyPreferencesToUserPreferences() async {
-  const String migrationUuid = "c2c3473a-ea23-4a3d-a247-952861a7435e";
-
-  try {
-    final SharedPreferencesWithCache prefs =
-        await SharedPreferencesWithCache.create(
-          cacheOptions: SharedPreferencesWithCacheOptions(),
-        );
-
-    final ok = prefs.getString("flow.migration.$migrationUuid");
-
-    if (ok != null) return;
-
-    try {
-      // ignore: deprecated_member_use_from_same_package
-      final bool privacyMode = LocalPreferences().privacyMode.get();
-
-      UserPreferencesService().privacyModeUponLaunch = privacyMode;
-      if (privacyMode) {
-        unawaited(TransitiveLocalPreferences().sessionPrivacyMode.set(true));
-      }
-
-      await prefs.setString("flow.migration.$migrationUuid", "ok");
-    } catch (e) {
-      _log.warning(
-        "Failed to migrate privacy preferences for migration $migrationUuid",
-        e,
-      );
-    }
-  } catch (e) {
-    _log.warning(
-      "Failed to read migration status for migration $migrationUuid",
-      e,
-    );
-  }
-}
-
 void migrateRemoveTitleFromUntitledTransactions() async {
   const String migrationUuid = "1504cb1e-2dff-4912-8f1a-04a83d83c32a";
 

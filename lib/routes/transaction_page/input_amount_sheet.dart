@@ -10,12 +10,10 @@ import "package:flow/services/currency_registry.dart";
 import "package:flow/services/user_preferences.dart";
 import "package:flow/theme/theme.dart";
 import "package:flow/utils/money_parsing.dart";
-import "package:flow/utils/suggested_currencies.dart";
 import "package:flow/utils/utils.dart";
 import "package:flow/widgets/general/approximate_money_text.dart";
 import "package:flow/widgets/general/modal_sheet.dart";
 import "package:flow/widgets/numpad.dart";
-import "package:flow/widgets/sheets/select_currency_sheet.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:go_router/go_router.dart";
@@ -60,12 +58,6 @@ class InputAmountSheet extends StatefulWidget {
 
   final int? overrideDecimalPrecision;
 
-  /// Makes the currency tappable. Called with the final currency on submit.
-  final ValueChanged<String>? onCurrencyChange;
-
-  /// Tints the currency to hint that it can be changed
-  final bool currencyHint;
-
   /// Shows the approximate amount in this currency when it differs
   final String? convertTo;
 
@@ -80,8 +72,6 @@ class InputAmountSheet extends StatefulWidget {
     this.allowNegative = true,
     this.lockSign = false,
     this.overrideDecimalPrecision,
-    this.onCurrencyChange,
-    this.currencyHint = false,
     this.convertTo,
   });
 
@@ -170,13 +160,6 @@ class _InputAmountSheetState extends State<InputAmountSheet>
                             widget.hideCurrencySymbol &&
                             _currency == widget.currency,
                         onPaste: (text) => handlePaste(text, true),
-                        onCurrencyTap: widget.onCurrencyChange == null
-                            ? null
-                            : _selectCurrency,
-                        currencyHint:
-                            widget.currencyHint ||
-                            (widget.convertTo != null &&
-                                _currency != widget.convertTo),
                       ),
                       if (widget.convertTo case String convertTo
                           when _currency != null && _currency != convertTo)
@@ -415,10 +398,6 @@ class _InputAmountSheetState extends State<InputAmountSheet>
       return;
     }
 
-    if (_currency case String currency) {
-      widget.onCurrencyChange?.call(currency);
-    }
-
     context.pop(value.currentAmount);
   }
 
@@ -433,29 +412,6 @@ class _InputAmountSheetState extends State<InputAmountSheet>
       // electricity bill
       _numberOfDecimals = 2;
     }
-  }
-
-  void _selectCurrency() async {
-    final String current =
-        _currency ?? UserPreferencesService().primaryCurrency;
-
-    final String? result = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => SelectCurrencySheet(
-        currentlySelected: current,
-        suggested: suggestedCurrencies(
-          accountCurrency: widget.convertTo ?? widget.currency,
-        ),
-      ),
-      isScrollControlled: true,
-    );
-
-    if (result == null || result == current || !mounted) return;
-
-    _currency = result;
-    _updateNumberOfDecimals();
-    _updateAmountFromNumber(value.currentAmount);
-    setState(() {});
   }
 
   void _reset() {

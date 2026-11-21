@@ -51,6 +51,27 @@ final ledgerLight = FlowColorScheme(
   ),
 );
 
+/// Night counterpart of the ledger's mint daylight scheme.
+final ledgerDark = FlowColorScheme(
+  name: "ledgerDark",
+  isDark: true,
+  surface: const Color(0xFF141C1E),
+  onSurface: const Color(0xFFE6EEEC),
+  primary: const Color(0xFF80D9C1),
+  onPrimary: const Color(0xFF08392E),
+  secondary: const Color(0xFF243733),
+  onSecondary: const Color(0xFFD4EAE3),
+  base: ColorScheme.fromSeed(
+    seedColor: const Color(0xFF48B59B),
+    brightness: Brightness.dark,
+  ),
+  customColors: const FlowCustomColors(
+    income: Color(0xFF88DABB),
+    expense: Color(0xFFFFA89B),
+    semi: Color(0xFFABBAB7),
+  ),
+);
+
 final Map<String, FlowColorScheme> standaloneThemes = {
   "ledgerLight": ledgerLight,
   "palenight": palenight,

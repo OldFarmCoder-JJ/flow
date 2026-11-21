@@ -1,3 +1,5 @@
+import "package:flow/routes/preferences/theme_preferences_page.dart";
+import "package:flow/theme/ledger_appearance.dart";
 import "package:flow/widgets/transactions_date_header.dart";
 import "package:moment_dart/moment_dart.dart";
 import "package:flow/routes/home/home_tab.dart";
@@ -68,6 +70,51 @@ void main() {
     );
     db.box<Account>().putMany([legacy, wallet]);
     db.box<Category>().putMany([shopping, clothes, custom]);
+  });
+
+  test("automatic appearance switches at local calendar boundaries", () {
+    const auto = LedgerAppearance.automatic;
+    final evening = DateTime(2026, 12, 31, 20);
+    final morning = DateTime(2027, 1, 1, 7);
+    expect(
+      auto.modeAt(evening.subtract(const Duration(seconds: 1))),
+      ThemeMode.light,
+    );
+    expect(auto.modeAt(evening), ThemeMode.dark);
+    expect(auto.nextBoundary(evening), morning);
+    expect(
+      auto.modeAt(morning.subtract(const Duration(seconds: 1))),
+      ThemeMode.dark,
+    );
+    expect(auto.modeAt(morning), ThemeMode.light);
+    expect(auto.nextBoundary(morning), DateTime(2027, 1, 1, 20));
+    expect(LedgerAppearance.dark.modeAt(morning), ThemeMode.dark);
+    expect(LedgerAppearance.light.modeAt(evening), ThemeMode.light);
+    expect(LedgerAppearance.fromName(null), auto);
+    expect(ThemeFactory(ledgerDark).materialTheme.brightness, Brightness.dark);
+  });
+
+  testWidgets("appearance picker persists and restores the chosen mode", (
+    tester,
+  ) async {
+    final pref = LocalPreferences().ledgerAppearance;
+    await tester.pumpWidget(const MaterialApp(home: ThemePreferencesPage()));
+    await tester.tap(find.text("深色"));
+    await tester.pumpAndSettle();
+    expect(pref.value, "dark");
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(const MaterialApp(home: ThemePreferencesPage()));
+    expect(
+      tester
+          .widget<RadioGroup<LedgerAppearance>>(
+            find.byType(RadioGroup<LedgerAppearance>),
+          )
+          .groupValue,
+      LedgerAppearance.dark,
+    );
+    await tester.tap(find.text("夜间自动"));
+    await tester.pumpAndSettle();
+    expect(pref.value, "automatic");
   });
 
   tearDownAll(() async {

@@ -25,7 +25,6 @@ import "package:flow/data/ledger_stats.dart";
 import "package:flow/widgets/general/pending_transactions_header.dart";
 import "package:flow/widgets/general/wavy_divider.dart";
 import "package:flow/widgets/grouped_transactions_list_view.dart";
-import "package:flow/widgets/home/privacy_toggler.dart";
 
 import "package:flow/widgets/home/home/no_transactions.dart";
 import "package:flow/widgets/internal_notifications/internal_notification_section.dart";
@@ -322,7 +321,6 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                               child: const Icon(Icons.tune_rounded),
                             ),
                           ),
-                          const PrivacyToggler(),
                         ],
                       ),
                     ),

@@ -39,7 +39,9 @@ class ExchangeRatesService {
     }
 
     final String primaryCurrency = UserPreferencesService().primaryCurrency;
-    tryFetchRates(primaryCurrency);
+    if (TransitiveLocalPreferences().usesNonPrimaryCurrency.get()) {
+      tryFetchRates(primaryCurrency);
+    }
   }
 
   ExchangeRates? getPrimaryCurrencyRates() {
