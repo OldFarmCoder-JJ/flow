@@ -1,3 +1,4 @@
+import "package:flow/routes/ledger_bills_page.dart";
 import "dart:async";
 
 import "package:flow/data/actionable_nofications/actionable_notification.dart";
@@ -450,7 +451,13 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               //   const SizedBox(height: 4.0),
               // ],
               const SizedBox(height: 8),
-              LedgerFlowSummary(flow: combinedFlow),
+              LedgerFlowSummary(
+                flow: combinedFlow,
+                onBills: () => openLedgerBills(
+                  context,
+                  currentFilter.range?.range?.from.toLocal() ?? DateTime.now(),
+                ),
+              ),
               const SizedBox(height: 12),
             ],
           ),

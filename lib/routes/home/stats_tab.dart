@@ -1,6 +1,7 @@
-import "package:fl_chart/fl_chart.dart";
+import "package:flow/widgets/general/ledger_charts.dart";
+import "package:flow/routes/ledger_bills_page.dart";
 import "package:flow/data/ledger_stats.dart";
-import "package:flow/data/money.dart";
+
 import "package:flow/data/transaction_filter.dart";
 import "package:flow/data/transactions_filter/time_range.dart";
 import "package:flow/entity/transaction.dart";
@@ -9,7 +10,7 @@ import "package:flow/providers/categories_provider.dart";
 import "package:flow/routes/transactions_page.dart";
 import "package:flow/widgets/general/ledger_category_icon.dart";
 import "package:flow/widgets/general/ledger_choice_bar.dart";
-import "package:flow/widgets/general/money_text.dart";
+
 import "package:flutter/material.dart";
 
 class StatsTab extends StatefulWidget {
@@ -65,6 +66,11 @@ class _StatsTabState extends State<StatsTab>
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => openLedgerBills(context, anchor),
+                      icon: const Icon(Icons.receipt_long_outlined, size: 17),
+                      label: const Text("账单"),
                     ),
                     Tooltip(
                       message: showTrend ? "切换到分类占比" : "切换到收支趋势",
@@ -244,7 +250,7 @@ class _StatsTabState extends State<StatsTab>
               ),
             ),
             if (showTrend)
-              _LedgerTrend(stats: stats, interval: interval, kind: kind)
+              LedgerTrend(stats: stats, interval: interval, kind: kind)
             else ...[
               DecoratedBox(
                 decoration: BoxDecoration(
@@ -253,7 +259,7 @@ class _StatsTabState extends State<StatsTab>
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(10),
-                  child: _LedgerRing(
+                  child: LedgerRing(
                     stats: stats,
                     kind: kind,
                     selectedCategory: selectedCategory,
@@ -367,17 +373,6 @@ class _EmptyLedgerPeriod extends StatelessWidget {
   }
 }
 
-Widget ledgerAmount(int cents, {TextStyle? style}) =>
-    MoneyText(Money(cents / 100, ledgerCurrency), style: style);
-
-String percentage(int cents, int total) =>
-    "${(cents * 100 / total).toStringAsFixed(1)}%";
-
-Color _categoryColor(BuildContext context, int id) =>
-    ledgerCategoryAccent(CategoriesProvider.of(context).get(id));
-
-const _otherColor = Color(0xFFA9A3BE);
-
 class _CategoryRank extends StatelessWidget {
   const _CategoryRank({
     required this.category,
@@ -425,7 +420,7 @@ class _CategoryRank extends StatelessWidget {
                       LinearProgressIndicator(
                         minHeight: 3,
                         value: category.cents / total,
-                        color: _categoryColor(context, category.id),
+                        color: ledgerChartCategoryColor(context, category.id),
                         backgroundColor: colors.surfaceContainer,
                         borderRadius: BorderRadius.circular(3),
                       ),
@@ -455,315 +450,6 @@ class _CategoryRank extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _LedgerRing extends StatelessWidget {
-  const _LedgerRing({
-    required this.stats,
-    required this.kind,
-    required this.selectedCategory,
-    required this.onSelect,
-  });
-
-  final LedgerStats stats;
-  final String kind;
-  final int? selectedCategory;
-  final ValueChanged<int?> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final categories = stats.categories.take(5).toList();
-    final other = stats.categories
-        .skip(5)
-        .fold(0, (sum, item) => sum + item.cents);
-    final chosen = stats.categories
-        .where((item) => item.id == selectedCategory)
-        .firstOrNull;
-    final legend = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final entry in categories)
-          _LegendRow(
-            label: entry.name,
-            color: _categoryColor(context, entry.id),
-            fraction: percentage(entry.cents, stats.totalCents),
-            selected: entry.id == selectedCategory,
-          ),
-        if (other > 0)
-          _LegendRow(
-            label: "其他",
-            color: _otherColor,
-            fraction: percentage(other, stats.totalCents),
-          ),
-      ],
-    );
-    return LayoutBuilder(
-      builder: (context, size) {
-        final scale = MediaQuery.textScalerOf(context).scale(13) / 13;
-        final sideBySide = size.maxWidth >= 278 && scale <= 1.25;
-        final diameter = sideBySide
-            ? (size.maxWidth * .48).clamp(132.0, 172.0)
-            : 178.0.clamp(0, size.maxWidth).toDouble();
-        final ring = _LedgerRingGraphic(
-          diameter: diameter,
-          categories: categories,
-          other: other,
-          label: chosen?.name ?? "总$kind",
-          cents: chosen?.cents ?? stats.totalCents,
-          selectedCategory: selectedCategory,
-          onSelect: onSelect,
-        );
-        if (!sideBySide) {
-          return Column(children: [ring, const SizedBox(height: 8), legend]);
-        }
-        return Row(
-          children: [
-            ring,
-            const SizedBox(width: 14),
-            Expanded(child: legend),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _LedgerRingGraphic extends StatelessWidget {
-  const _LedgerRingGraphic({
-    required this.diameter,
-    required this.categories,
-    required this.other,
-    required this.label,
-    required this.cents,
-    required this.selectedCategory,
-    required this.onSelect,
-  });
-
-  final double diameter;
-  final List<LedgerCategoryTotal> categories;
-  final int other;
-  final String label;
-  final int cents;
-  final int? selectedCategory;
-  final ValueChanged<int?> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = diameter * .34;
-    final ringWidth = diameter * .12;
-    final labelWidth = radius * 1.7;
-    final colors = Theme.of(context).colorScheme;
-    return SizedBox.square(
-      dimension: diameter,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          PieChart(
-            PieChartData(
-              centerSpaceRadius: radius,
-              sectionsSpace: 2,
-              startDegreeOffset: -90,
-              pieTouchData: PieTouchData(
-                touchCallback: (event, response) {
-                  if (event is! FlTapUpEvent) return;
-                  final index =
-                      response?.touchedSection?.touchedSectionIndex ?? -1;
-                  final id = index >= 0 && index < categories.length
-                      ? categories[index].id
-                      : null;
-                  onSelect(id == selectedCategory ? null : id);
-                },
-              ),
-              sections: [
-                for (final item in categories)
-                  PieChartSectionData(
-                    value: item.cents.toDouble(),
-                    color: _categoryColor(context, item.id),
-                    radius: selectedCategory == item.id
-                        ? ringWidth + 4
-                        : ringWidth,
-                    showTitle: false,
-                  ),
-                if (other > 0)
-                  PieChartSectionData(
-                    value: other.toDouble(),
-                    color: _otherColor,
-                    radius: ringWidth,
-                    showTitle: false,
-                  ),
-              ],
-            ),
-          ),
-          IgnorePointer(
-            child: SizedBox(
-              width: labelWidth,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: ledgerAmount(
-                      cents,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LegendRow extends StatelessWidget {
-  const _LegendRow({
-    required this.label,
-    required this.color,
-    required this.fraction,
-    this.selected = false,
-  });
-
-  final String label;
-  final Color color;
-  final String fraction;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        spacing: 6,
-        children: [
-          Icon(Icons.circle, size: 8, color: color),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-              ),
-            ),
-          ),
-          Text(
-            fraction,
-            style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LedgerTrend extends StatelessWidget {
-  const _LedgerTrend({
-    required this.stats,
-    required this.interval,
-    required this.kind,
-  });
-
-  final LedgerStats stats;
-  final LedgerInterval interval;
-  final String kind;
-
-  String label(DateTime date) => interval == LedgerInterval.year
-      ? "${date.month}月"
-      : "${date.month}/${date.day}";
-
-  @override
-  Widget build(BuildContext context) {
-    final buckets = stats.buckets.entries.toList();
-    if (buckets.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.primary;
-    final step = (buckets.length / 5).ceil();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text("总$kind"),
-        ledgerAmount(
-          stats.totalCents,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 200,
-          child: LineChart(
-            LineChartData(
-              minY: 0,
-              minX: 0,
-              maxX: buckets.length == 1 ? 1 : (buckets.length - 1).toDouble(),
-              borderData: FlBorderData(show: false),
-              gridData: const FlGridData(drawVerticalLine: false),
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(),
-                rightTitles: const AxisTitles(),
-                leftTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: true, reservedSize: 42),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: 1,
-                    reservedSize: 26,
-                    getTitlesWidget: (value, meta) {
-                      final index = value.toInt();
-                      if (index >= buckets.length ||
-                          (index % step != 0 && index != buckets.length - 1)) {
-                        return const SizedBox.shrink();
-                      }
-                      return Text(
-                        label(buckets[index].key),
-                        style: theme.textTheme.labelSmall,
-                      );
-                    },
-                  ),
-                ),
-              ),
-              lineBarsData: [
-                LineChartBarData(
-                  color: color,
-                  spots: [
-                    for (final (index, bucket) in buckets.indexed)
-                      FlSpot(index.toDouble(), bucket.value / 100),
-                  ],
-                  barWidth: 2,
-                  belowBarData: BarAreaData(
-                    show: true,
-                    color: color.withValues(alpha: .10),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        for (final bucket in buckets.reversed)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(label(bucket.key)),
-            trailing: ledgerAmount(bucket.value),
-          ),
-      ],
     );
   }
 }

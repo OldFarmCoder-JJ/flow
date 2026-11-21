@@ -5,9 +5,10 @@ import "package:flutter/material.dart";
 
 /// Shows settled spending first, with income and net flow alongside it.
 class LedgerFlowSummary extends StatelessWidget {
-  const LedgerFlowSummary({super.key, required this.flow});
+  const LedgerFlowSummary({super.key, required this.flow, this.onBills});
 
   final SingleCurrencyFlow flow;
+  final VoidCallback? onBills;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +29,20 @@ class LedgerFlowSummary extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Flexible(child: Text("本期支出", style: theme.textTheme.labelMedium)),
+            if (onBills != null) ...[
+              const Spacer(),
+              InkWell(
+                onTap: onBills,
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+                  child: Text(
+                    "账单 ›",
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 4),

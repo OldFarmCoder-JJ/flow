@@ -6,31 +6,37 @@ import "package:flutter/material.dart";
 Color ledgerCategoryAccent(Category? category) {
   final custom = category?.colorScheme?.primary;
   if (custom != null) return custom;
-  const orange = Color(0xFFC45A17);
-  const violet = Color(0xFF7850B6);
-  const blue = Color(0xFF2C6EAF);
-  const jade = Color(0xFF16836B);
-  const rose = Color(0xFFB64469);
-  const ochre = Color(0xFFA16B0D);
-  const slate = Color(0xFF536A80);
   final name = category?.name.trim() ?? "";
   return switch (name) {
-    "餐饮" || "零食" || "快递" => orange,
-    "购物" || "娱乐" || "游戏" || "游戏账号" => violet,
-    "交通" || "通讯" || "数码" || "旅行" => blue,
-    "日用" || "健身" || "工资" || "理财" || "基金" || "退款" => jade,
-    "礼金" || "红包" || "服饰" || "亲友" || "医疗" => rose,
-    "住房" || "居家" || "学习" || "宠物" || "饮料" || "品茶" || "奖金" || "水电" => ochre,
-    "办公" || "维修" || "兼职" || "其他" || "其它" || "" => slate,
+    "购物" => const Color(0xFF8175DF),
+    "餐饮" => const Color(0xFF27AA84),
+    "娱乐" => const Color(0xFFEF8854),
+    "游戏" || "游戏账号" => const Color(0xFFE7B83D),
+    "医疗" => const Color(0xFF4AAAD1),
+    "交通" => const Color(0xFF528AD4),
+    "住房" => const Color(0xFFD78368),
+    "日用" => const Color(0xFF68A46D),
+    "通讯" => const Color(0xFF438F9C),
+    "数码" => const Color(0xFF687DC2),
+    "零食" => const Color(0xFFE59399),
+    "饮料" => const Color(0xFFC09153),
+    "品茶" => const Color(0xFF8BA65A),
+    "礼金" || "红包" => const Color(0xFFD96C82),
+    "工资" => const Color(0xFF388D76),
+    "兼职" => const Color(0xFF579EBD),
+    "理财" || "基金" => const Color(0xFF729750),
+    "维修" || "办公" => const Color(0xFF658399),
+    "水电" => const Color(0xFF519DAE),
+    "服饰" || "亲友" => const Color(0xFFB578AB),
+    "其它" || "其他" || "" => const Color(0xFF8896A3),
     _ => const [
-      orange,
-      violet,
-      blue,
-      jade,
-      rose,
-      ochre,
-      slate,
-    ][name.runes.fold<int>(0, (sum, rune) => sum * 31 + rune) % 7],
+      Color(0xFF7986C6),
+      Color(0xFFB67E8C),
+      Color(0xFF6F9A86),
+      Color(0xFFB78D58),
+      Color(0xFF688CAB),
+      Color(0xFFAF83B0),
+    ][name.runes.fold<int>(0, (hash, rune) => hash * 31 + rune) % 6],
   };
 }
 
@@ -55,7 +61,7 @@ class LedgerCategoryIcon extends StatelessWidget {
     final ink = Color.lerp(
       accent,
       dark ? Colors.white : Colors.black,
-      dark ? .55 : .14,
+      dark ? .55 : .32,
     )!;
     final plate = Color.alphaBlend(
       accent.withValues(alpha: dark ? .24 : .12),
