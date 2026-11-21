@@ -8,8 +8,7 @@ import "package:flow/data/transactions_filter/pending_time_range.dart";
 import "package:flow/data/transactions_filter/time_range.dart";
 import "package:flow/entity/transaction.dart";
 import "package:flow/entity/transaction_filter_preset.dart";
-import "package:flow/l10n/extensions.dart";
-import "package:flow/l10n/named_enum.dart";
+
 import "package:flow/objectbox/actions.dart";
 import "package:flow/prefs/local_preferences.dart";
 import "package:flow/routes/home_page.dart";
@@ -19,8 +18,8 @@ import "package:flow/services/user_preferences.dart";
 import "package:flow/theme/helpers.dart";
 import "package:flow/utils/utils.dart";
 import "package:flow/widgets/default_transaction_filter_head.dart";
-import "package:flow/widgets/general/frame.dart";
-import "package:flow/widgets/general/money_text.dart";
+
+import "package:flow/widgets/home/ledger_flow_summary.dart";
 import "package:flow/data/ledger_stats.dart";
 import "package:flow/widgets/general/pending_transactions_header.dart";
 import "package:flow/widgets/general/wavy_divider.dart";
@@ -52,6 +51,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
 
   late PendingTimeRange _plannedTransactionsTimeRange;
 
+  bool _filtersOpen = false;
   late TransactionFilter defaultFilter;
   DateTime dateKey = Moment.startOfToday();
 
@@ -302,28 +302,30 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                 bottom: false,
                 child: Column(
                   children: [
-                    Frame.standalone(
-                      withSurface: true,
-                      child: Column(
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
+                      child: Row(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  "tabs.home".t(context),
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.headlineMedium,
-                                ),
-                              ),
-                              const PrivacyToggler(),
-                            ],
+                          Expanded(child: buildMonthNavigation(context)),
+                          IconButton(
+                            tooltip: _filtersOpen ? "收起筛选" : "搜索与筛选",
+                            isSelected: _filtersOpen,
+                            onPressed: () =>
+                                setState(() => _filtersOpen = !_filtersOpen),
+                            icon: Badge(
+                              isLabelVisible:
+                                  currentFilter.copyWithOptional(
+                                    range: Optional(defaultFilter.range),
+                                  ) !=
+                                  defaultFilter,
+                              child: const Icon(Icons.tune_rounded),
+                            ),
                           ),
-                          buildMonthNavigation(context),
+                          const PrivacyToggler(),
                         ],
                       ),
                     ),
-                    header,
+                    Offstage(offstage: !_filtersOpen, child: header),
                   ],
                 ),
               ),
@@ -362,7 +364,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
             0;
     final title = isMonth ? "${month.year}年${month.month}月" : "当前筛选期间";
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
         IconButton(
           tooltip: "上个月",
@@ -448,56 +450,8 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               //   const SizedBox(height: 4.0),
               // ],
               const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: context.colorScheme.secondary,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(TransactionType.expense.localizedNameContext(context)),
-                    MoneyText(
-                      combinedFlow.totalExpense,
-                      displayAbsoluteAmount: true,
-                      autoSize: true,
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const Divider(),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                TransactionType.income.localizedNameContext(
-                                  context,
-                                ),
-                              ),
-                              MoneyText(
-                                combinedFlow.totalIncome,
-                                autoSize: true,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("tabs.home.flow".t(context)),
-                              MoneyText(combinedFlow.totalFlow, autoSize: true),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              LedgerFlowSummary(flow: combinedFlow),
+              const SizedBox(height: 12),
             ],
           ),
           controller: widget.scrollController,

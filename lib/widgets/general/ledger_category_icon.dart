@@ -2,62 +2,82 @@ import "package:flow/entity/category.dart";
 import "package:flow/widgets/general/flow_icon.dart";
 import "package:flutter/material.dart";
 
-/// A category glyph shared by quick entry and chart rankings.
+/// Stable category accents shared by entry, history and reports.
+Color ledgerCategoryAccent(Category? category) {
+  final custom = category?.colorScheme?.primary;
+  if (custom != null) return custom;
+  const orange = Color(0xFFC45A17);
+  const violet = Color(0xFF7850B6);
+  const blue = Color(0xFF2C6EAF);
+  const jade = Color(0xFF16836B);
+  const rose = Color(0xFFB64469);
+  const ochre = Color(0xFFA16B0D);
+  const slate = Color(0xFF536A80);
+  final name = category?.name.trim() ?? "";
+  return switch (name) {
+    "餐饮" || "零食" || "快递" => orange,
+    "购物" || "娱乐" || "游戏" || "游戏账号" => violet,
+    "交通" || "通讯" || "数码" || "旅行" => blue,
+    "日用" || "健身" || "工资" || "理财" || "基金" || "退款" => jade,
+    "礼金" || "红包" || "服饰" || "亲友" || "医疗" => rose,
+    "住房" || "居家" || "学习" || "宠物" || "饮料" || "品茶" || "奖金" || "水电" => ochre,
+    "办公" || "维修" || "兼职" || "其他" || "其它" || "" => slate,
+    _ => const [
+      orange,
+      violet,
+      blue,
+      jade,
+      rose,
+      ochre,
+      slate,
+    ][name.runes.fold<int>(0, (sum, rune) => sum * 31 + rune) % 7],
+  };
+}
+
+/// Renders the stored glyph on a matching tonal plate.
 class LedgerCategoryIcon extends StatelessWidget {
   const LedgerCategoryIcon({
     super.key,
     required this.category,
     this.diameter = 42,
     this.selected = false,
-    this.tint,
   });
 
   final Category? category;
   final double diameter;
   final bool selected;
-  final Color? tint;
-
-  static const _tints = [
-    Color(0xFF9EE5D5),
-    Color(0xFFFFDF88),
-    Color(0xFFAAD7FF),
-    Color(0xFFCEC1FF),
-    Color(0xFFFFC4B8),
-  ];
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final category = this.category;
-    final tone =
-        tint ?? (category == null ? null : _tints[category.id % _tints.length]);
-    final foreground = selected
-        ? colors.onPrimaryContainer
-        : colors.onSurfaceVariant;
+    final dark = colors.brightness == Brightness.dark;
+    final accent = ledgerCategoryAccent(category);
+    final ink = Color.lerp(
+      accent,
+      dark ? Colors.white : Colors.black,
+      dark ? .55 : .14,
+    )!;
+    final plate = Color.alphaBlend(
+      accent.withValues(alpha: dark ? .24 : .12),
+      colors.surface,
+    );
+    final glyph = category?.icon;
     return SizedBox.square(
       dimension: diameter,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: selected
-              ? colors.primaryContainer
-              : tone?.withValues(
-                      alpha: colors.brightness == Brightness.light ? .37 : .18,
-                    ) ??
-                    colors.surfaceContainer,
-          borderRadius: BorderRadius.circular(diameter * .32),
+          color: plate,
+          border: selected ? Border.all(color: ink, width: 2) : null,
+          borderRadius: BorderRadius.circular(diameter * .34),
         ),
         child: Center(
-          child: category == null
-              ? Icon(
-                  Icons.category_outlined,
-                  color: foreground,
-                  size: diameter * .52,
-                )
+          child: glyph == null
+              ? Icon(Icons.category_outlined, color: ink, size: diameter * .55)
               : FlowIcon(
-                  category.icon,
-                  color: foreground,
-                  fill: 0,
-                  size: diameter * .52,
+                  glyph,
+                  color: ink,
+                  fill: selected ? 1 : 0,
+                  size: diameter * .55,
                 ),
         ),
       ),

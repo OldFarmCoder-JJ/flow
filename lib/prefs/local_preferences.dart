@@ -25,7 +25,15 @@ class LocalPreferences {
   /// Main currency used in the app
   late final PrimitiveSettingsEntry<String> primaryCurrency;
   late final PrimitiveSettingsEntry<String> lastEntryAccountUuid;
+  /// Release manifest used on first launch and for manual checks.
+  static const defaultUpdateSource = String.fromEnvironment(
+    "LEDGER_UPDATE_URL",
+    defaultValue: "https://idc-learn.top/ledger-updates/latest.json",
+  );
   late final PrimitiveSettingsEntry<String> updateSource;
+
+  /// An explicitly empty value means the user disabled automatic checks.
+  String get effectiveUpdateSource => updateSource.value ?? defaultUpdateSource;
 
   /// Whether to use phone numpad layout
   ///
@@ -94,10 +102,7 @@ class LocalPreferences {
     updateSource = PrimitiveSettingsEntry<String>(
       key: "updateSource",
       preferences: _prefs,
-      initialValue: const String.fromEnvironment(
-        "LEDGER_UPDATE_URL",
-        defaultValue: "https://idc-learn.top/ledger-updates/latest.json",
-      ),
+      initialValue: defaultUpdateSource,
     );
     usePhoneNumpadLayout = BoolSettingsEntry(
       key: "usePhoneNumpadLayout",

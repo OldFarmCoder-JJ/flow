@@ -1,3 +1,6 @@
+import "package:flow/routes/home/home_tab.dart";
+import "package:flow/routes/quick_entry_page.dart";
+import "package:flow/widgets/home/ledger_flow_summary.dart";
 import "dart:io";
 
 import "package:flow/data/flow_icon.dart";
@@ -175,6 +178,81 @@ void main() {
     expect(find.text("服饰"), findsOneWidget);
     expect(find.byIcon(Icons.checkroom_outlined), findsOneWidget);
   });
+
+  testWidgets(
+    "a CNY expense updates the summary and uses its entry color in history",
+    (tester) async {
+      final id = wallet.createAndSaveTransaction(
+        title: "示例采购",
+        amount: -63.25,
+        category: shopping,
+      );
+      final expectedExpense = db
+          .box<Transaction>()
+          .getAll()
+          .where(
+            (row) =>
+                row.amount < 0 &&
+                row.transactionDate.year == DateTime.now().year &&
+                row.transactionDate.month == DateTime.now().month,
+          )
+          .fold<double>(0, (sum, row) => sum + row.amount);
+      final theme = ThemeFactory(ledgerLight).materialTheme;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          localizationsDelegates: const [_LoadedLocale()],
+          builder: (_, child) => providers(child!),
+          home: const Scaffold(body: HomeTab()),
+        ),
+      );
+      for (
+        var i = 0;
+        i < 40 && find.byType(LedgerFlowSummary).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 25)),
+        );
+        await tester.pump(const Duration(milliseconds: 25));
+      }
+      final summary = tester.widget<LedgerFlowSummary>(
+        find.byType(LedgerFlowSummary),
+      );
+      expect(summary.flow.currency, "CNY");
+      expect(summary.flow.expenseSum, closeTo(expectedExpense, 0.001));
+      final row = find.byWidgetPredicate(
+        (widget) =>
+            widget is TransactionListTile && widget.transaction.id == id,
+      );
+      final historyIcon = tester.widget<Icon>(
+        find.descendant(
+          of: row,
+          matching: find.byIcon(Icons.shopping_bag_outlined),
+        ),
+      );
+      await tester.tap(find.byTooltip("搜索与筛选"));
+      await tester.pump();
+      expect(find.byTooltip("收起筛选"), findsOneWidget);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          builder: (_, child) => providers(child!),
+          home: const QuickEntryPage(),
+        ),
+      );
+      await tester.pump();
+      final entryIcon = tester.widget<Icon>(
+        find.byIcon(Icons.shopping_bag_outlined),
+      );
+      expect(entryIcon.color, historyIcon.color);
+      expect(
+        entryIcon.color,
+        isNot(tester.widget<Icon>(find.byIcon(Icons.checkroom_outlined)).color),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets("empty month points to the populated month in the prior year", (
     tester,

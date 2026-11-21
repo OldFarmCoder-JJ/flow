@@ -13,7 +13,7 @@ import "package:flow/providers/categories_provider.dart";
 import "package:flow/services/file_attachment.dart";
 import "package:flow/services/user_preferences.dart";
 import "package:flow/widgets/general/ledger_category_icon.dart";
-import "package:flow/widgets/general/ledger_choice_bar.dart";
+import "package:flutter/cupertino.dart" show CupertinoSlidingSegmentedControl;
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:go_router/go_router.dart";
@@ -81,15 +81,7 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
     final priority = _type == TransactionType.expense
         ? _commonExpenses
         : _commonIncomes;
-    int rank(Category category) {
-      final index = priority.indexOf(category.name);
-      return index < 0 ? priority.length : index;
-    }
-
-    return [...provider.categoriesFor(_type)]..sort((a, b) {
-      final comparison = rank(a).compareTo(rank(b));
-      return comparison == 0 ? a.id.compareTo(b.id) : comparison;
-    });
+    return provider.categoriesFor(_type, defaults: priority);
   }
 
   Account? _account(List<Account> accounts) {
@@ -141,7 +133,41 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
         appBar: AppBar(
           toolbarHeight: 48,
           leading: CloseButton(onPressed: _saving ? () {} : null),
-          title: const Text("记一笔", style: TextStyle(fontSize: 17)),
+          centerTitle: true,
+          title: Semantics(
+            label: "记账类型",
+            child: CupertinoSlidingSegmentedControl<TransactionType>(
+              groupValue: _type,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+              thumbColor: Theme.of(context).colorScheme.surface,
+              children: {
+                for (final entry in const {
+                  TransactionType.expense: "支出",
+                  TransactionType.income: "收入",
+                }.entries)
+                  entry.key: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 3,
+                    ),
+                    child: Text(
+                      entry.value,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: _type == entry.key
+                            ? Theme.of(context).colorScheme.onSurface
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: _type == entry.key
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+              },
+              onValueChanged: (value) {
+                if (value != null) _switchType(value);
+              },
+            ),
+          ),
           actions: [_EntryMenu(type: _type, enabled: !_saving)],
         ),
         body: SafeArea(
@@ -152,15 +178,6 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
               child: LayoutBuilder(
                 builder: (context, constraints) => Column(
                   children: [
-                    LedgerChoiceBar(
-                      label: "记账类型",
-                      options: const {
-                        TransactionType.expense: "支出",
-                        TransactionType.income: "收入",
-                      },
-                      selected: _type,
-                      onSelect: _switchType,
-                    ),
                     Expanded(
                       child: _CategoryGrid(
                         controller: _gridScroll,

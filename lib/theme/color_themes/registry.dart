@@ -28,7 +28,7 @@ final ledgerLight = FlowColorScheme(
   name: "ledgerLight",
   isDark: false,
   surface: Colors.white,
-  onSurface: const Color(0xFF182E2B),
+  onSurface: const Color(0xFF212631),
   primary: const Color(0xFF006D5B),
   onPrimary: Colors.white,
   secondary: const Color(0xFFF0FBF7),
@@ -41,13 +41,13 @@ final ledgerLight = FlowColorScheme(
     surfaceContainerLow: const Color(0xFFF5FCF9),
     surfaceContainer: const Color(0xFFEBF7F4),
     surfaceContainerHigh: const Color(0xFFE4F2EE),
-    onSurfaceVariant: const Color(0xFF46635D),
-    outlineVariant: const Color(0xFFD3E8E1),
+    onSurfaceVariant: const Color(0xFF586474),
+    outlineVariant: const Color(0xFFDDE3E8),
   ),
   customColors: const FlowCustomColors(
     income: Color(0xFF007361),
     expense: Color(0xFFB1433C),
-    semi: Color(0xFF46635D),
+    semi: Color(0xFF586474),
   ),
 );
 

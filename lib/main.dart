@@ -482,10 +482,8 @@ class FlowState extends State<Flow> {
   Future<void> _checkForAndroidUpdate() async {
     if (!Platform.isAndroid || !mounted || _tempLock) return;
     final preferences = LocalPreferences();
-    final source = preferences.updateSource.value;
-    if (source == null ||
-        source.isEmpty ||
-        !preferences.completedInitialSetup.get()) {
+    final source = preferences.effectiveUpdateSource;
+    if (source.isEmpty || !preferences.completedInitialSetup.get()) {
       return;
     }
 
@@ -507,7 +505,7 @@ class FlowState extends State<Flow> {
       );
       if (!mounted ||
           _tempLock ||
-          preferences.updateSource.value != source ||
+          preferences.effectiveUpdateSource != source ||
           update == null ||
           _announcedUpdate == update.versionCode) {
         return;

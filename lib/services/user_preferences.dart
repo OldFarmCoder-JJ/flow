@@ -21,7 +21,7 @@ import "package:flow/services/home_widgets.dart";
 import "package:flow/theme/color_themes/registry.dart";
 import "package:flutter/material.dart";
 import "package:home_widget/home_widget.dart";
-import "package:intl/intl.dart";
+import "package:flow/data/ledger_stats.dart" show ledgerCurrency;
 import "package:logging/logging.dart";
 import "package:uuid/uuid.dart";
 
@@ -293,14 +293,7 @@ class UserPreferencesService {
       return primaryCurrency = firstAccountCurency;
     }
 
-    // Generally, primary currency will be set up when the user first
-    // opens the app. When recovering from a backup, backup logic should
-    // handle setting this value.
-    return primaryCurrency =
-        NumberFormat.currency(
-          locale: Intl.defaultLocale ?? "en_US",
-        ).currencyName ??
-        "USD";
+    return primaryCurrency = ledgerCurrency;
   }
 
   set primaryCurrency(String? newPrimaryCurrency) {

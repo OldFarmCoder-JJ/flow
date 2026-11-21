@@ -17,7 +17,10 @@ class TransactionSubtitle extends StatelessWidget {
             components[i],
           ],
         ],
-        style: Theme.of(context).textTheme.labelSmall,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w400,
+        ),
       ),
     );
   }

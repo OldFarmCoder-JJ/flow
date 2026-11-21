@@ -50,32 +50,64 @@ class _CategoryGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, size) {
         final columns = size.maxWidth < 325 || scale > 1.4 ? 3 : 4;
-        return GridView.builder(
+        final firstCount = categories.length.clamp(0, 8);
+        final grid = SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisExtent: 56 + 19 * scale,
+          mainAxisSpacing: 3,
+          crossAxisSpacing: 4,
+        );
+        return CustomScrollView(
           controller: controller,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          itemCount: categories.length + 1,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            mainAxisExtent: 57 + 18 * scale,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 2,
-          ),
-          itemBuilder: (context, index) {
-            final category = index == categories.length
-                ? null
-                : categories[index];
-            final selected = category != null && category.uuid == selectedId;
-            return _CategoryTile(
-              category: category,
-              selected: selected,
-              onTap: !enabled
-                  ? null
-                  : category == null
-                  ? () => context.push("/categories")
-                  : () => onSelect(category),
-            );
-          },
+          slivers: [
+            if (categories.isEmpty)
+              SliverToBoxAdapter(
+                child: TextButton.icon(
+                  onPressed: enabled ? () => context.push("/categories") : null,
+                  icon: const Icon(Icons.add),
+                  label: const Text("添加分类"),
+                ),
+              ),
+            for (final (heading, start, end) in [
+              if (firstCount > 0)
+                (
+                  firstCount == categories.length ? "选择分类" : "常用分类",
+                  0,
+                  firstCount,
+                ),
+              if (firstCount < categories.length)
+                ("其他分类", firstCount, categories.length),
+            ]) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                  child: Text(
+                    heading,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                sliver: SliverGrid.builder(
+                  gridDelegate: grid,
+                  itemCount: end - start,
+                  itemBuilder: (context, index) {
+                    final category = categories[start + index];
+                    return _CategoryTile(
+                      category: category,
+                      selected: category.uuid == selectedId,
+                      onTap: enabled ? () => onSelect(category) : null,
+                    );
+                  },
+                ),
+              ),
+            ],
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+          ],
         );
       },
     );
@@ -89,14 +121,14 @@ class _CategoryTile extends StatelessWidget {
     required this.onTap,
   });
 
-  final Category? category;
+  final Category category;
   final bool selected;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final label = category?.name ?? "管理分类";
+    final label = category.name;
     return Semantics(
       button: true,
       selected: selected,
@@ -110,23 +142,7 @@ class _CategoryTile extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (category == null)
-                  SizedBox.square(
-                    dimension: 42,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colors.surfaceContainer,
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      child: Icon(
-                        Icons.tune_outlined,
-                        size: 20,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                else
-                  LedgerCategoryIcon(category: category, selected: selected),
+                LedgerCategoryIcon(category: category, selected: selected),
                 const SizedBox(height: 5),
                 Text(
                   label,
@@ -135,7 +151,7 @@ class _CategoryTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.15,
-                    color: selected ? colors.primary : colors.onSurface,
+                    color: colors.onSurface,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),

@@ -6,7 +6,7 @@ import "package:flow/entity/transaction/extensions/default/foreign_currency.dart
 import "package:flow/entity/transaction/extensions/default/transfer.dart";
 import "package:flow/l10n/extensions.dart";
 import "package:flow/providers/accounts_provider.dart";
-import "package:flow/theme/flow_color_scheme.dart";
+import "package:flow/widgets/general/ledger_category_icon.dart";
 import "package:flow/theme/theme.dart";
 import "package:flow/utils/extensions/directionality.dart";
 import "package:flow/utils/extensions/transaction.dart";
@@ -275,7 +275,9 @@ class TransactionListTile extends StatelessWidget {
                                 ],
                                 TextSpan(text: resolvedTitle),
                               ],
-                              style: context.textTheme.bodyMedium,
+                              style: context.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
@@ -375,12 +377,12 @@ class TransactionListTile extends StatelessWidget {
     );
   }
 
-  FlowIcon buildLeading(
+  Widget buildLeading(
     BuildContext context,
     TransactionListTileThemeData theme,
   ) {
     late final FlowIconData iconData;
-    FlowColorScheme? colorScheme;
+    final category = transaction.category.target;
 
     if (transaction.isTransfer) {
       iconData = FlowIconData.icon(Symbols.sync_alt_rounded);
@@ -389,9 +391,8 @@ class TransactionListTile extends StatelessWidget {
           AccountsProvider.of(context).get(transaction.accountUuid)?.icon ??
           transaction.account.target?.icon ??
           FlowIconData.icon(Symbols.circle_rounded);
-    } else if (transaction.category.target != null) {
-      iconData = transaction.category.target!.icon;
-      colorScheme = transaction.category.target!.colorScheme;
+    } else if (category != null) {
+      return LedgerCategoryIcon(category: category, diameter: 40);
     } else {
       iconData = FlowIconData.icon(Symbols.circle_rounded);
     }
@@ -400,8 +401,6 @@ class TransactionListTile extends StatelessWidget {
       iconData,
       plated: true,
       fill: transaction.category.target != null ? 1.0 : 0.0,
-      color: colorScheme?.primary,
-      plateColor: colorScheme?.secondary,
     );
   }
 

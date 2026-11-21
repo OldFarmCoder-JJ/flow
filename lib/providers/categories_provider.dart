@@ -63,7 +63,10 @@ class CategoriesProvider extends InheritedWidget {
   /// Returns categories sorted by frecency restricted to [type]. Pass null
   /// when the type is unknown or mixed (bulk edits, transfers) — it falls
   /// back to combined ranking.
-  List<Category> categoriesFor(TransactionType? type) {
+  List<Category> categoriesFor(
+    TransactionType? type, {
+    List<String> defaults = const [],
+  }) {
     final List<Category> list = _categories ?? const [];
     if (list.isEmpty) return list;
 
@@ -84,11 +87,18 @@ class CategoriesProvider extends InheritedWidget {
           .toList(),
     );
 
-    return [...list]..sort(
-      (a, b) => frecencyGroup
-          .getScore(b.uuid)
-          .compareTo(frecencyGroup.getScore(a.uuid)),
-    );
+    final scores = {
+      for (final item in list) item.uuid: frecencyGroup.getScore(item.uuid),
+    };
+    final ranks = {for (var i = 0; i < defaults.length; i++) defaults[i]: i};
+    return [...list]..sort((a, b) {
+      final byUse = scores[b.uuid]!.compareTo(scores[a.uuid]!);
+      if (byUse != 0) return byUse;
+      final byDefault = (ranks[a.name] ?? ranks.length).compareTo(
+        ranks[b.name] ?? ranks.length,
+      );
+      return byDefault != 0 ? byDefault : a.id.compareTo(b.id);
+    });
   }
 
   List<String> get uuids =>

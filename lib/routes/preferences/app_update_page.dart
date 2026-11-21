@@ -8,9 +8,16 @@ import "package:flutter/services.dart";
 import "package:http/http.dart" as http;
 import "package:package_info_plus/package_info_plus.dart";
 
-/// Configures the update source, checks for releases and starts installation.
+/// Checks the configured release channel and starts installation.
 class AppUpdatePage extends StatefulWidget {
-  const AppUpdatePage({super.key, this.initialUpdate});
+  const AppUpdatePage({
+    super.key,
+    this.initialUpdate,
+    this.check = checkAppUpdate,
+  });
+
+  /// Loads the next release for the installed build.
+  final Future<AppUpdateManifest?> Function(Uri, int) check;
 
   final AppUpdateManifest? initialUpdate;
 
@@ -19,10 +26,19 @@ class AppUpdatePage extends StatefulWidget {
 }
 
 class _AppUpdatePageState extends State<AppUpdatePage> {
-  late final _address = TextEditingController(
-    text: LocalPreferences().updateSource.value,
-  );
-  final _formKey = GlobalKey<FormState>();
+  late bool _automatic = LocalPreferences().effectiveUpdateSource.isNotEmpty;
+  late final String _source =
+      switch (LocalPreferences().effectiveUpdateSource) {
+        final value when value.isNotEmpty => value,
+        _ => LocalPreferences.defaultUpdateSource,
+      };
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialUpdate == null) unawaited(_check());
+  }
+
   late final Future<PackageInfo> _installed = PackageInfo.fromPlatform();
   late AppUpdateManifest? _available = widget.initialUpdate;
   bool _busy = false;
@@ -35,13 +51,10 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
   @override
   void dispose() {
     _downloadCancellation?.cancel();
-    _address.dispose();
     super.dispose();
   }
 
   Future<void> _check() async {
-    if (!_formKey.currentState!.validate()) return;
-    FocusScope.of(context).unfocus();
     setState(() {
       _busy = true;
       _available = null;
@@ -51,16 +64,9 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
     });
 
     try {
-      final saved = LocalPreferences().updateSource;
-      if (_address.text.trim().isEmpty) {
-        await saved.set("");
-        if (mounted) setState(() => _notice = "已关闭自动检查更新");
-        return;
-      }
-      final source = parseUpdateSource(_address.text);
-      await saved.set(source.toString());
+      final source = parseUpdateSource(_source);
       final installed = await _installed;
-      final update = await checkAppUpdate(
+      final update = await widget.check(
         source,
         int.parse(installed.buildNumber),
       );
@@ -135,7 +141,7 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
     PlatformException(:final message) => message ?? "无法打开安卓安装程序",
     TimeoutException() => "连接超时，请稍后重试",
     FileSystemException() => "无法保存安装包，请检查可用空间",
-    _ => "无法获取更新，请检查网络和服务器地址",
+    _ => "无法获取更新，请检查网络后重试",
   };
 
   @override
@@ -160,44 +166,28 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
               },
             ),
             const SizedBox(height: 20),
-            Form(
-              key: _formKey,
-              child: TextFormField(
-                enabled: !_busy,
-                controller: _address,
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: "HTTPS 更新地址",
-                  helperText: "可填目录地址或 latest.json 完整地址。留空可关闭检查。",
-                  helperMaxLines: 3,
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) return null;
-                  try {
-                    parseUpdateSource(value);
-                    return null;
-                  } on FormatException catch (error) {
-                    return error.message;
-                  }
-                },
-                onChanged: (_) {
-                  if (_available != null || _notice != null) {
-                    setState(() {
-                      _available = null;
-                      _notice = null;
-                      _downloaded = false;
-                      _canContinue = false;
-                    });
-                  }
-                },
+            SwitchListTile(
+              title: const Text("自动检查更新"),
+              contentPadding: EdgeInsets.zero,
+              value: _automatic,
+              onChanged: _busy
+                  ? null
+                  : (value) async {
+                      try {
+                        await LocalPreferences().updateSource.set(
+                          value ? _source : "",
+                        );
+                        if (mounted) setState(() => _automatic = value);
+                      } catch (error) {
+                        if (mounted) setState(() => _notice = "设置保存失败，请重试");
+                      }
+                    },
+            ),
+            if (update == null)
+              OutlinedButton(
+                onPressed: _busy ? null : _check,
+                child: Text(_busy ? "正在检查更新" : "检查更新"),
               ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: _busy ? null : _check,
-              child: const Text("保存并检查更新"),
-            ),
             if (_busy && progress == null)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),

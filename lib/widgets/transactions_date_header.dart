@@ -135,18 +135,24 @@ class _TransactionListDateHeaderState extends State<TransactionListDateHeader> {
           children: [
             Flexible(
               fit: FlexFit.tight,
-              child: Column(
-                crossAxisAlignment: .start,
-                mainAxisSize: MainAxisSize.min,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 2,
                 children: [
                   DefaultTextStyle(
-                    style: context.textTheme.headlineSmall!,
+                    style: context.textTheme.titleSmall!.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                     child: title,
                   ),
                   MoneyTextBuilder(
                     builder: (context, formattedSum, originalSum) => RichText(
                       text: TextSpan(
-                        style: context.textTheme.labelMedium,
+                        style: context.textTheme.labelSmall?.copyWith(
+                          color: context.colorScheme.onSurfaceVariant,
+                        ),
                         children: [
                           TextSpan(
                             text: "$formattedSum$exclamation",

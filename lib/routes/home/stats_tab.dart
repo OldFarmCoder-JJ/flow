@@ -277,7 +277,6 @@ class _StatsTabState extends State<StatsTab>
                   icon: LedgerCategoryIcon(
                     category: categories.get(category.id),
                     diameter: 33,
-                    tint: categoryColor(category.id),
                   ),
                   total: stats.totalCents,
                   selected: selectedCategory == category.id,
@@ -374,17 +373,8 @@ Widget ledgerAmount(int cents, {TextStyle? style}) =>
 String percentage(int cents, int total) =>
     "${(cents * 100 / total).toStringAsFixed(1)}%";
 
-const _categoryColors = [
-  Color(0xFFFFBD49),
-  Color(0xFF51A1EC),
-  Color(0xFF1AB89E),
-  Color(0xFFF88877),
-  Color(0xFF9879ED),
-  Color(0xFFEA76AB),
-  Color(0xFF83BB5A),
-];
-
-Color categoryColor(int id) => _categoryColors[id % _categoryColors.length];
+Color _categoryColor(BuildContext context, int id) =>
+    ledgerCategoryAccent(CategoriesProvider.of(context).get(id));
 
 const _otherColor = Color(0xFFA9A3BE);
 
@@ -435,7 +425,7 @@ class _CategoryRank extends StatelessWidget {
                       LinearProgressIndicator(
                         minHeight: 3,
                         value: category.cents / total,
-                        color: categoryColor(category.id),
+                        color: _categoryColor(context, category.id),
                         backgroundColor: colors.surfaceContainer,
                         borderRadius: BorderRadius.circular(3),
                       ),
@@ -497,7 +487,7 @@ class _LedgerRing extends StatelessWidget {
         for (final entry in categories)
           _LegendRow(
             label: entry.name,
-            color: categoryColor(entry.id),
+            color: _categoryColor(context, entry.id),
             fraction: percentage(entry.cents, stats.totalCents),
             selected: entry.id == selectedCategory,
           ),
@@ -590,7 +580,7 @@ class _LedgerRingGraphic extends StatelessWidget {
                 for (final item in categories)
                   PieChartSectionData(
                     value: item.cents.toDouble(),
-                    color: categoryColor(item.id),
+                    color: _categoryColor(context, item.id),
                     radius: selectedCategory == item.id
                         ? ringWidth + 4
                         : ringWidth,
