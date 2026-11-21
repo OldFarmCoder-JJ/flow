@@ -27,16 +27,27 @@ export "monochrome.dart";
 final ledgerLight = FlowColorScheme(
   name: "ledgerLight",
   isDark: false,
-  surface: const Color(0xFFFFFAF3),
-  onSurface: const Color(0xFF25211C),
-  primary: const Color(0xFF915200),
+  surface: const Color(0xFFFFFEFC),
+  onSurface: const Color(0xFF252522),
+  primary: const Color(0xFF875100),
   onPrimary: Colors.white,
-  secondary: const Color(0xFFFFECD0),
-  onSecondary: const Color(0xFF4C310F),
+  secondary: const Color(0xFFFFF5E3),
+  onSecondary: const Color(0xFF5F3D09),
+  base: ColorScheme.fromSeed(seedColor: const Color(0xFFF6B742)).copyWith(
+    primaryContainer: const Color(0xFFFFD675),
+    onPrimaryContainer: const Color(0xFF472D00),
+    secondaryContainer: const Color(0xFFFFEBC2),
+    onSecondaryContainer: const Color(0xFF5F3D09),
+    surfaceContainerLow: const Color(0xFFFAF8F3),
+    surfaceContainer: const Color(0xFFF6F3ED),
+    surfaceContainerHigh: const Color(0xFFF1EEE8),
+    onSurfaceVariant: const Color(0xFF625B50),
+    outlineVariant: const Color(0xFFE6DED0),
+  ),
   customColors: const FlowCustomColors(
     income: Color(0xFF256349),
     expense: Color(0xFF963C32),
-    semi: Color(0xFF6E6154),
+    semi: Color(0xFF625B50),
   ),
 );
 

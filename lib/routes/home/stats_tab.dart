@@ -5,7 +5,10 @@ import "package:flow/data/transaction_filter.dart";
 import "package:flow/data/transactions_filter/time_range.dart";
 import "package:flow/entity/transaction.dart";
 import "package:flow/prefs/transitive.dart";
+import "package:flow/providers/categories_provider.dart";
 import "package:flow/routes/transactions_page.dart";
+import "package:flow/widgets/general/ledger_category_icon.dart";
+import "package:flow/widgets/general/ledger_choice_bar.dart";
 import "package:flow/widgets/general/money_text.dart";
 import "package:flutter/material.dart";
 
@@ -52,29 +55,69 @@ class _StatsTabState extends State<StatsTab>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 12),
-                Text("图表", style: Theme.of(context).textTheme.headlineMedium),
-                _StatsSwitch<bool>(
-                  values: const {true: "支出", false: "收入"},
-                  selected: expense,
-                  onSelect: (value) => setState(() {
-                    expense = value;
-                    selectedCategory = null;
-                  }),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "图表",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => setState(() => showTrend = !showTrend),
+                      icon: Icon(
+                        showTrend ? Icons.donut_large : Icons.show_chart,
+                        size: 18,
+                      ),
+                      label: Text(showTrend ? "分类占比" : "收支趋势"),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
                 ),
-                _StatsSwitch<LedgerInterval>(
-                  values: {
-                    for (final item in LedgerInterval.values) item: item.label,
-                  },
-                  selected: interval,
-                  onSelect: (value) => updatePeriod(value, anchor),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: LedgerChoiceBar<bool>(
+                        label: "收支类型",
+                        options: const {true: "支出", false: "收入"},
+                        selected: expense,
+                        onSelect: (value) => setState(() {
+                          expense = value;
+                          selectedCategory = null;
+                        }),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Container(
+                        width: 1,
+                        height: 18,
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: LedgerChoiceBar<LedgerInterval>(
+                        label: "统计周期",
+                        options: {
+                          for (final item in LedgerInterval.values)
+                            item: item.label,
+                        },
+                        selected: interval,
+                        onSelect: (value) => updatePeriod(value, anchor),
+                      ),
+                    ),
+                  ],
                 ),
                 buildPeriods(now),
-                _StatsSwitch<bool>(
-                  values: const {false: "分类占比", true: "收支趋势"},
-                  selected: showTrend,
-                  onSelect: (value) => setState(() => showTrend = value),
-                ),
+                const Divider(height: 1),
                 Expanded(
                   child: StreamBuilder<List<Transaction>>(
                     key: ValueKey(entries),
@@ -121,39 +164,29 @@ class _StatsTabState extends State<StatsTab>
           tooltip: "更早",
           onPressed: () =>
               updatePeriod(interval, interval.offset(selected, -1)),
-          icon: const Icon(Icons.chevron_left),
+          icon: const Icon(Icons.chevron_left, size: 20),
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              spacing: 6,
-              children: [
-                for (int i = -3; i <= 0; i++)
-                  FilterChip(
-                    showCheckmark: false,
-                    label: Text(periodLabel(interval.offset(end, i), current)),
-                    selected: interval.offset(end, i) == selected,
-                    onSelected: (_) =>
-                        updatePeriod(interval, interval.offset(end, i)),
-                  ),
-              ],
+        for (int i = -3; i <= 0; i++)
+          Expanded(
+            child: LedgerChoice(
+              label: periodLabel(interval.offset(end, i), current),
+              selected: interval.offset(end, i) == selected,
+              onTap: () => updatePeriod(interval, interval.offset(end, i)),
             ),
           ),
-        ),
         IconButton(
           tooltip: selected == current ? "当前期间" : "回到当前期间",
           onPressed: selected == current
               ? null
               : () => updatePeriod(interval, now),
-          icon: const Icon(Icons.today_outlined),
+          icon: const Icon(Icons.today_outlined, size: 18),
         ),
       ],
     );
   }
 
   String periodLabel(DateTime date, DateTime current) => switch (interval) {
-    LedgerInterval.year => date == current ? "今年" : "${date.year}",
+    LedgerInterval.year => "${date.year}",
     LedgerInterval.month =>
       date == current
           ? "本月"
@@ -166,6 +199,7 @@ class _StatsTabState extends State<StatsTab>
 
   Widget buildReport(LedgerStats stats) {
     final kind = expense ? "支出" : "收入";
+    final categories = CategoriesProvider.of(context);
     return ValueListenableBuilder<bool?>(
       valueListenable:
           TransitiveLocalPreferences().sessionPrivacyMode.valueNotifier,
@@ -196,30 +230,22 @@ class _StatsTabState extends State<StatsTab>
               selectedCategory: selectedCategory,
               onSelect: (value) => setState(() => selectedCategory = value),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             Text(
-              expense ? "支出分类" : "收入分类",
-              style: Theme.of(context).textTheme.titleLarge,
+              "$kind分类",
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 6),
             for (final category in stats.categories)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
+              _CategoryRank(
+                category: category,
+                icon: LedgerCategoryIcon(
+                  category: categories.get(category.id),
+                  diameter: 33,
+                  tint: categoryColor(category.id),
+                ),
+                total: stats.totalCents,
                 selected: selectedCategory == category.id,
-                leading: Icon(
-                  Icons.circle,
-                  size: 12,
-                  color: categoryColor(category.id),
-                ),
-                title: Text(category.name),
-                subtitle: Text(percentage(category.cents, stats.totalCents)),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ledgerAmount(category.cents),
-                    const Icon(Icons.chevron_right, size: 18),
-                  ],
-                ),
                 onTap: () => openCategory(category, kind),
               ),
           ],
@@ -256,29 +282,6 @@ class _StatsTabState extends State<StatsTab>
   bool get wantKeepAlive => true;
 }
 
-class _StatsSwitch<T> extends StatelessWidget {
-  const _StatsSwitch({
-    required this.values,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final Map<T, String> values;
-  final T selected;
-  final ValueChanged<T> onSelect;
-
-  @override
-  Widget build(BuildContext context) => SegmentedButton<T>(
-    showSelectedIcon: false,
-    segments: [
-      for (final entry in values.entries)
-        ButtonSegment(value: entry.key, label: Text(entry.value)),
-    ],
-    selected: {selected},
-    onSelectionChanged: (selected) => onSelect(selected.single),
-  );
-}
-
 Widget ledgerAmount(int cents, {TextStyle? style}) =>
     MoneyText(Money(cents / 100, ledgerCurrency), style: style);
 
@@ -286,16 +289,99 @@ String percentage(int cents, int total) =>
     "${(cents * 100 / total).toStringAsFixed(1)}%";
 
 const _categoryColors = [
-  Color(0xFFA76B10),
-  Color(0xFF537D65),
-  Color(0xFF666FA8),
-  Color(0xFF9D594E),
-  Color(0xFF397A80),
-  Color(0xFF8B6093),
-  Color(0xFF657653),
+  Color(0xFFF2AE3F),
+  Color(0xFF65A8E4),
+  Color(0xFF50B9A0),
+  Color(0xFFED866F),
+  Color(0xFF9A8CE6),
+  Color(0xFFE783B4),
+  Color(0xFF87A964),
 ];
 
 Color categoryColor(int id) => _categoryColors[id % _categoryColors.length];
+
+const _otherColor = Color(0xFFA9A3BE);
+
+class _CategoryRank extends StatelessWidget {
+  const _CategoryRank({
+    required this.category,
+    required this.icon,
+    required this.total,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final LedgerCategoryTotal category;
+  final Widget icon;
+  final int total;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: selected ? colors.surfaceContainerLow : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 51),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+            child: Row(
+              spacing: 8,
+              children: [
+                icon,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        category.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 4),
+                      LinearProgressIndicator(
+                        minHeight: 3,
+                        value: category.cents / total,
+                        color: categoryColor(category.id),
+                        backgroundColor: colors.surfaceContainer,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  percentage(category.cents, total),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 62,
+                    maxWidth: 126,
+                  ),
+                  child: ledgerAmount(
+                    category.cents,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                const Icon(Icons.chevron_right, size: 15),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _LedgerRing extends StatelessWidget {
   const _LedgerRing({
@@ -319,14 +405,88 @@ class _LedgerRing extends StatelessWidget {
     final chosen = stats.categories
         .where((item) => item.id == selectedCategory)
         .firstOrNull;
-    return SizedBox(
-      height: 228,
+    final legend = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final entry in categories)
+          _LegendRow(
+            label: entry.name,
+            color: categoryColor(entry.id),
+            fraction: percentage(entry.cents, stats.totalCents),
+            selected: entry.id == selectedCategory,
+          ),
+        if (other > 0)
+          _LegendRow(
+            label: "其他",
+            color: _otherColor,
+            fraction: percentage(other, stats.totalCents),
+          ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, size) {
+        final scale = MediaQuery.textScalerOf(context).scale(13) / 13;
+        final sideBySide = size.maxWidth >= 278 && scale <= 1.25;
+        final diameter = sideBySide
+            ? (size.maxWidth * .48).clamp(132.0, 172.0)
+            : 178.0.clamp(0, size.maxWidth).toDouble();
+        final ring = _LedgerRingGraphic(
+          diameter: diameter,
+          categories: categories,
+          other: other,
+          label: chosen?.name ?? "总$kind",
+          cents: chosen?.cents ?? stats.totalCents,
+          selectedCategory: selectedCategory,
+          onSelect: onSelect,
+        );
+        if (!sideBySide) {
+          return Column(children: [ring, const SizedBox(height: 8), legend]);
+        }
+        return Row(
+          children: [
+            ring,
+            const SizedBox(width: 14),
+            Expanded(child: legend),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LedgerRingGraphic extends StatelessWidget {
+  const _LedgerRingGraphic({
+    required this.diameter,
+    required this.categories,
+    required this.other,
+    required this.label,
+    required this.cents,
+    required this.selectedCategory,
+    required this.onSelect,
+  });
+
+  final double diameter;
+  final List<LedgerCategoryTotal> categories;
+  final int other;
+  final String label;
+  final int cents;
+  final int? selectedCategory;
+  final ValueChanged<int?> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = diameter * .34;
+    final ringWidth = diameter * .12;
+    final labelWidth = radius * 1.7;
+    final colors = Theme.of(context).colorScheme;
+    return SizedBox.square(
+      dimension: diameter,
       child: Stack(
         alignment: Alignment.center,
         children: [
           PieChart(
             PieChartData(
-              centerSpaceRadius: 72,
+              centerSpaceRadius: radius,
               sectionsSpace: 2,
               startDegreeOffset: -90,
               pieTouchData: PieTouchData(
@@ -345,14 +505,16 @@ class _LedgerRing extends StatelessWidget {
                   PieChartSectionData(
                     value: item.cents.toDouble(),
                     color: categoryColor(item.id),
-                    radius: selectedCategory == item.id ? 34 : 28,
+                    radius: selectedCategory == item.id
+                        ? ringWidth + 4
+                        : ringWidth,
                     showTitle: false,
                   ),
                 if (other > 0)
                   PieChartSectionData(
                     value: other.toDouble(),
-                    color: const Color(0xFF776D60),
-                    radius: 28,
+                    color: _otherColor,
+                    radius: ringWidth,
                     showTitle: false,
                   ),
               ],
@@ -360,22 +522,75 @@ class _LedgerRing extends StatelessWidget {
           ),
           IgnorePointer(
             child: SizedBox(
-              width: 133,
+              width: labelWidth,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    chosen?.name ?? "总$kind",
+                    label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
-                  ledgerAmount(
-                    chosen?.cents ?? stats.totalCents,
-                    style: Theme.of(context).textTheme.titleLarge,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: ledgerAmount(
+                      cents,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({
+    required this.label,
+    required this.color,
+    required this.fraction,
+    this.selected = false,
+  });
+
+  final String label;
+  final Color color;
+  final String fraction;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        spacing: 6,
+        children: [
+          Icon(Icons.circle, size: 8, color: color),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+              ),
+            ),
+          ),
+          Text(
+            fraction,
+            style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
           ),
         ],
       ),
@@ -409,7 +624,10 @@ class _LedgerTrend extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text("总$kind"),
-        ledgerAmount(stats.totalCents, style: theme.textTheme.headlineMedium),
+        ledgerAmount(
+          stats.totalCents,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 12),
         SizedBox(
           height: 200,

@@ -157,18 +157,23 @@ class FileAttachmentService {
     }
   }
 
-  /// Returns the path for [ImageFlowIcon]
-  Future<FileAttachment?> createFromXFile(XFile xFile) async {
+  /// Copies a picked file to the ledger's attachment directory.
+  ///
+  /// Pass [checkForOrphan] as false when the caller owns cleanup on failure.
+  Future<FileAttachment?> createFromXFile(
+    XFile xFile, {
+    bool checkForOrphan = true,
+  }) async {
+    final fileName = "${const Uuid().v4()}/${path.basename(xFile.name)}";
+    final file = File(path.join(ObjectBox.filesDirectory, fileName));
     try {
-      final String fileName = "${const Uuid().v4()}/${xFile.name}";
-      final File file = File(path.join(ObjectBox.filesDirectory, fileName));
-      await file.create(recursive: true);
+      await file.parent.create(recursive: true);
       await File(xFile.path).copy(file.path);
 
       final fileAttachment = FileAttachment(
         filePath: "${ObjectBox.filesDirectoryName}/$fileName",
       );
-      markForCleanupCheck(fileAttachment);
+      if (checkForOrphan) markForCleanupCheck(fileAttachment);
       return fileAttachment;
     } catch (e, stackTrace) {
       _log.warning(
@@ -176,6 +181,11 @@ class FileAttachmentService {
         e,
         stackTrace,
       );
+      try {
+        if (await file.exists()) await file.delete();
+      } on FileSystemException catch (error) {
+        _log.warning("Couldn't remove incomplete attachment", error);
+      }
       return null;
     }
   }

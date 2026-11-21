@@ -46,6 +46,7 @@ class FlowColorScheme {
   final Color? onError;
 
   final FlowCustomColors customColors;
+  final ColorScheme? _base;
 
   late final ColorScheme colorScheme;
 
@@ -64,8 +65,10 @@ class FlowColorScheme {
     this.onError,
     this.onPrimary,
     this.iconName,
-  }) {
-    final defaultBase = (isDark ? _defaultDarkBase : _defaultLightBase);
+    ColorScheme? base,
+  }) : _base = base {
+    final defaultBase =
+        _base ?? (isDark ? _defaultDarkBase : _defaultLightBase);
 
     colorScheme = defaultBase.copyWith(
       surface: surface,
@@ -76,7 +79,7 @@ class FlowColorScheme {
       onSecondary: onSecondary,
       error: error ?? defaultBase.error,
       onError: onError ?? defaultBase.onError,
-      outlineVariant: customColors.semi,
+      outlineVariant: _base?.outlineVariant ?? customColors.semi,
     );
   }
 
@@ -106,6 +109,7 @@ class FlowColorScheme {
       customColors: customColors ?? this.customColors,
       name: name ?? this.name,
       iconName: iconName ?? this.iconName,
+      base: _base,
     );
   }
 }

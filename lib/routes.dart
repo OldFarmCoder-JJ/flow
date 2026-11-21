@@ -67,6 +67,7 @@ import "package:flow/routes/stats/wrapped_page.dart";
 import "package:flow/routes/support_page.dart";
 import "package:flow/routes/transaction_batch_import_page.dart";
 import "package:flow/routes/transaction_page.dart";
+import "package:flow/routes/quick_entry_page.dart";
 import "package:flow/routes/transaction_tag_page.dart";
 import "package:flow/routes/transaction_tags_page.dart";
 import "package:flow/routes/transactions_page.dart";
@@ -109,6 +110,13 @@ final GoRouter router = GoRouter(
   errorBuilder: (context, state) => ErrorPage(error: state.error?.toString()),
   routes: [
     GoRoute(path: "/", builder: (context, state) => const HomePage()),
+    GoRoute(
+      path: "/transaction/quick",
+      pageBuilder: (context, state) => const MaterialPage(
+        fullscreenDialog: true,
+        child: QuickEntryPage(),
+      ),
+    ),
     GoRoute(
       path: "/transaction/new",
       redirect: (context, state) {

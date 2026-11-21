@@ -168,7 +168,7 @@ class HomePageState extends State<HomePage>
                     duration: const Duration(milliseconds: 100),
                     child: Navbar(
                       onTap: _navigateTo,
-                      onAdd: () => _newTransactionPage(FlowButtonType.expense),
+                      onAdd: () => context.push("/transaction/quick"),
                       activeIndex: _currentIndex,
                     ),
                   ),
