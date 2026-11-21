@@ -1,3 +1,5 @@
+import "package:flow/widgets/transactions_date_header.dart";
+import "package:moment_dart/moment_dart.dart";
 import "package:flow/routes/home/home_tab.dart";
 import "package:flow/routes/quick_entry_page.dart";
 import "package:flow/widgets/home/ledger_flow_summary.dart";
@@ -82,6 +84,62 @@ void main() {
     ], child: TransactionTagsProvider(const [], child: child)),
   );
 
+  testWidgets(
+    "today groups settled expenses by category and respects privacy",
+    (tester) async {
+      final now = DateTime.now();
+      final meal = Category(name: "餐饮", iconCode: "");
+      db.box<Category>().put(meal);
+      var sequence = 0;
+      Transaction entry(
+        double amount,
+        Category category, {
+        bool pending = false,
+      }) => Transaction(
+        uuid: "day-group-${sequence++}",
+        amount: amount,
+        currency: "CNY",
+        transactionDate: now,
+        isPending: pending,
+      )..category.target = category;
+      final rows = [
+        for (final amount in [-16.8, -12.0, -15.0, -15.0]) entry(amount, meal),
+        entry(-5, shopping),
+        entry(100, meal),
+        entry(-100, meal, pending: true),
+      ];
+      final box = db.box<Transaction>();
+      final ids = box.putMany(rows);
+      final stored = ids.map((id) => box.get(id)!).toList();
+      addTearDown(() => box.removeMany(ids));
+      final privacy = TransitiveLocalPreferences().sessionPrivacyMode;
+      await privacy.set(false);
+      Future<void> render(DateTime date) => tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeFactory(ledgerLight).materialTheme,
+          localizationsDelegates: const [_LoadedLocale()],
+          home: Scaffold(
+            body: TransactionListDateHeader(
+              range: DayTimeRange.fromDateTime(date),
+              transactions: stored,
+              showTodaySpending: true,
+              titleOverride: const Text("日期"),
+            ),
+          ),
+        ),
+      );
+      await render(now);
+      final dining = find.text("● 餐饮 58.80", findRichText: true);
+      expect(dining, findsOneWidget);
+      expect(find.text("● 购物 5.00", findRichText: true), findsOneWidget);
+      await privacy.set(true);
+      await tester.pump();
+      expect(dining, findsNothing);
+      await privacy.set(false);
+      await render(DateTime(now.year, now.month, now.day - 1));
+      expect(dining, findsNothing);
+    },
+  );
   testWidgets("old entry name survives editing and reopening its category", (
     tester,
   ) async {

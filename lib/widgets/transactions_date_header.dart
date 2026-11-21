@@ -11,7 +11,8 @@ import "package:flow/services/user_preferences.dart";
 import "package:flow/theme/theme.dart";
 import "package:flow/widgets/general/money_text_builder.dart";
 import "package:flutter/services.dart";
-import "package:flutter/widgets.dart";
+import "package:flutter/material.dart";
+import "package:flow/widgets/general/today_spending.dart";
 import "package:moment_dart/moment_dart.dart";
 
 class TransactionListDateHeader extends StatefulWidget {
@@ -26,6 +27,7 @@ class TransactionListDateHeader extends StatefulWidget {
   final bool resolveNonPrimaryCurrencies;
 
   final Widget? titleOverride;
+  final bool showTodaySpending;
 
   const TransactionListDateHeader({
     super.key,
@@ -34,6 +36,7 @@ class TransactionListDateHeader extends StatefulWidget {
     this.action,
     this.titleOverride,
     this.pendingGroup = false,
+    this.showTodaySpending = false,
     this.resolveNonPrimaryCurrencies = true,
   });
   const TransactionListDateHeader.pendingGroup({
@@ -42,7 +45,8 @@ class TransactionListDateHeader extends StatefulWidget {
     this.action,
     this.titleOverride,
     this.resolveNonPrimaryCurrencies = true,
-  }) : pendingGroup = true,
+  }) : showTodaySpending = false,
+       pendingGroup = true,
        transactions = const [];
 
   @override
@@ -128,7 +132,7 @@ class _TransactionListDateHeaderState extends State<TransactionListDateHeader> {
           _ => "",
         };
 
-        return Row(
+        final header = Row(
           mainAxisSize: MainAxisSize.max,
           mainAxisAlignment: .spaceBetween,
           crossAxisAlignment: .center,
@@ -176,6 +180,19 @@ class _TransactionListDateHeaderState extends State<TransactionListDateHeader> {
               ),
             ),
             if (widget.action != null) widget.action!,
+          ],
+        );
+        if (!widget.showTodaySpending ||
+            obscure ||
+            widget.range is! DayTimeRange ||
+            !DateUtils.isSameDay(widget.range.from.toLocal(), DateTime.now())) {
+          return header;
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            header,
+            TodaySpending(transactions: widget.transactions),
           ],
         );
       },

@@ -477,6 +477,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
             }
 
             return TransactionListDateHeader(
+              showTodaySpending: true,
               transactions: transactions,
               range: range,
             );
