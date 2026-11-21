@@ -114,7 +114,13 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 290);
     await tester.pumpAndSettle();
     await tester.enterText(fields.first, "24.50");
-    await tester.enterText(fields.last, "午餐");
+    await tester.enterText(fields.last, "早餐鸡蛋");
+    await tester.pump();
+    expect(find.text("🥚", findRichText: true), findsOneWidget);
+    await tester.enterText(fields.last, "晚餐麦当劳");
+    await tester.pump();
+    expect(find.text("🍔", findRichText: true), findsOneWidget);
+    expect(find.text("🥚", findRichText: true), findsNothing);
     await tester.tap(find.byTooltip("添加备注"));
     await tester.pumpAndSettle();
     await tester.enterText(fields.last, "同事聚餐");
@@ -144,7 +150,7 @@ void main() {
     expect(transaction.amount, -24.5);
     expect(transaction.category.target?.uuid, meals.uuid);
     expect(transaction.account.target?.uuid, account.uuid);
-    expect(transaction.title, "午餐");
+    expect(transaction.title, "晚餐麦当劳");
     expect(transaction.description, "同事聚餐");
     expect(
       transaction.attachments.single.file.readAsBytesSync(),

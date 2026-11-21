@@ -417,6 +417,7 @@ class _MonthReportState extends State<_MonthReport> {
                 dense: true,
                 leading: LedgerCategoryIcon(
                   category: r.category.target,
+                  expenseTitle: r.title,
                   diameter: 34,
                 ),
                 title: Text(

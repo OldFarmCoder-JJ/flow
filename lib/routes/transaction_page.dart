@@ -529,8 +529,17 @@ class _TransactionPageState extends State<TransactionPage> {
                           child: ListTile(
                             leading: _selectedCategory == null
                                 ? null
-                                : LedgerCategoryIcon(
-                                    category: _selectedCategory,
+                                : ValueListenableBuilder<TextEditingValue>(
+                                    valueListenable: _titleController,
+                                    builder: (_, value, _) =>
+                                        LedgerCategoryIcon(
+                                          category: _selectedCategory,
+                                          expenseTitle:
+                                              _transactionType ==
+                                                  TransactionType.expense
+                                              ? value.text
+                                              : null,
+                                        ),
                                   ),
                             title: Text(
                               _selectedCategory?.name ??

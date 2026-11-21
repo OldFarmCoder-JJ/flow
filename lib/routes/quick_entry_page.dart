@@ -194,6 +194,7 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
                           maxHeight: constraints.maxHeight * .79,
                         ),
                         child: _EntryComposer(
+                          isExpense: _type == TransactionType.expense,
                           category: pickedCategory,
                           amount: _amount,
                           amountFocus: _amountFocus,

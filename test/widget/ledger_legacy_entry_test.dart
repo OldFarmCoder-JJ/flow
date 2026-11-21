@@ -1,3 +1,4 @@
+import "package:flow/data/dining_expense_emoji.dart";
 import "package:flow/routes/preferences/theme_preferences_page.dart";
 import "package:flow/theme/ledger_appearance.dart";
 import "package:flow/widgets/transactions_date_header.dart";
@@ -137,6 +138,7 @@ void main() {
       final now = DateTime.now();
       final meal = Category(name: "餐饮", iconCode: "");
       db.box<Category>().put(meal);
+      addTearDown(() => db.box<Category>().remove(meal.id));
       var sequence = 0;
       Transaction entry(
         double amount,
@@ -187,6 +189,71 @@ void main() {
       expect(dining, findsNothing);
     },
   );
+  test("dining glyphs distinguish dishes, shops, and vague meal labels", () {
+    for (final entry in {
+      "早餐麦当劳": "🍔",
+      "早餐鸡蛋": "🥚",
+      "德克士": "🍔",
+      "冒烤鸭": "🦆",
+      "早餐阳春面": "🍜",
+      "麦当劳薯条": "🍟",
+      "汉堡王鸡蛋": "🥚",
+      "晚餐🥚": "🥚",
+    }.entries) {
+      expect(
+        diningExpenseEmoji("餐饮", entry.key),
+        entry.value,
+        reason: entry.key,
+      );
+    }
+    expect(diningExpenseEmoji("购物", "鸡蛋"), isNull);
+    expect(diningExpenseEmoji("餐饮", "午餐"), isNull);
+    expect(diningExpenseEmoji("餐饮", null), isNull);
+  });
+
+  testWidgets("saved dining rows change their glyph when renamed", (
+    tester,
+  ) async {
+    final dining = Category(name: "餐饮", iconCode: "");
+    final categories = db.box<Category>();
+    categories.put(dining);
+    final id = legacy.createAndSaveTransaction(
+      title: "麦当劳早餐",
+      amount: -15,
+      category: dining,
+    );
+    final rows = db.box<Transaction>();
+    addTearDown(() {
+      rows.remove(id);
+      categories.remove(dining.id);
+    });
+    Future<void> render() => tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeFactory(ledgerDark).materialTheme,
+        localizationsDelegates: const [_LoadedLocale()],
+        home: providers(
+          Scaffold(
+            body: TransactionListTile(
+              transaction: rows.get(id)!,
+              recoverFromTrashFn: null,
+              moveToTrashFn: null,
+              combineTransfers: false,
+              theme: const TransactionListTileThemeData(showCategory: true),
+            ),
+          ),
+        ),
+      ),
+    );
+    await render();
+    expect(find.text("🍔", findRichText: true), findsOneWidget);
+    rows.put(rows.get(id)!..title = "早餐鸡蛋");
+    await render();
+    expect(find.text("🥚", findRichText: true), findsOneWidget);
+    expect(find.text("🍔", findRichText: true), findsNothing);
+    expect(rows.get(id)!.category.targetId, dining.id);
+    expect(rows.get(id)!.amount, -15);
+  });
+
   testWidgets("old entry name survives editing and reopening its category", (
     tester,
   ) async {

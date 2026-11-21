@@ -166,6 +166,7 @@ class _CategoryTile extends StatelessWidget {
 
 class _EntryComposer extends StatelessWidget {
   const _EntryComposer({
+    required this.isExpense,
     required this.category,
     required this.amount,
     required this.amountFocus,
@@ -187,6 +188,7 @@ class _EntryComposer extends StatelessWidget {
   });
 
   final Category category;
+  final bool isExpense;
   final TextEditingController amount;
   final FocusNode amountFocus;
   final TextEditingController name;
@@ -230,10 +232,14 @@ class _EntryComposer extends StatelessWidget {
           children: [
             Row(
               children: [
-                LedgerCategoryIcon(
-                  category: category,
-                  selected: true,
-                  diameter: 28,
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: name,
+                  builder: (_, value, _) => LedgerCategoryIcon(
+                    category: category,
+                    expenseTitle: isExpense ? value.text : null,
+                    selected: true,
+                    diameter: 28,
+                  ),
                 ),
                 const SizedBox(width: 7),
                 Flexible(

@@ -1,4 +1,6 @@
 import "package:flow/entity/category.dart";
+import "package:flow/data/dining_expense_emoji.dart";
+import "package:flow/data/flow_icon.dart";
 import "package:flow/widgets/general/flow_icon.dart";
 import "package:flutter/material.dart";
 
@@ -47,9 +49,13 @@ class LedgerCategoryIcon extends StatelessWidget {
     required this.category,
     this.diameter = 42,
     this.selected = false,
+    this.expenseTitle,
   });
 
   final Category? category;
+
+  /// Supply the entry title only when showing an individual expense.
+  final String? expenseTitle;
   final double diameter;
   final bool selected;
 
@@ -67,7 +73,8 @@ class LedgerCategoryIcon extends StatelessWidget {
       accent.withValues(alpha: dark ? .24 : .12),
       colors.surface,
     );
-    final glyph = category?.icon;
+    final emoji = diningExpenseEmoji(category?.name, expenseTitle);
+    final glyph = emoji == null ? category?.icon : FlowIconData.emoji(emoji);
     return SizedBox.square(
       dimension: diameter,
       child: DecoratedBox(
@@ -83,7 +90,7 @@ class LedgerCategoryIcon extends StatelessWidget {
                   glyph,
                   color: ink,
                   fill: selected ? 1 : 0,
-                  size: diameter * .55,
+                  size: diameter * (emoji == null ? .55 : .76),
                 ),
         ),
       ),

@@ -392,7 +392,13 @@ class TransactionListTile extends StatelessWidget {
           transaction.account.target?.icon ??
           FlowIconData.icon(Symbols.circle_rounded);
     } else if (category != null) {
-      return LedgerCategoryIcon(category: category, diameter: 40);
+      return LedgerCategoryIcon(
+        category: category,
+        diameter: 40,
+        expenseTitle: transaction.type == TransactionType.expense
+            ? transaction.title
+            : null,
+      );
     } else {
       iconData = FlowIconData.icon(Symbols.circle_rounded);
     }
