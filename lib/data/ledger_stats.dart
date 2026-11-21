@@ -1,3 +1,5 @@
+import "package:flow/data/transaction_filter.dart";
+import "package:flow/data/transactions_filter/time_range.dart";
 import "package:flow/entity/transaction.dart";
 import "package:moment_dart/moment_dart.dart";
 
@@ -28,6 +30,16 @@ enum LedgerInterval {
       offset(first, 1).subtract(const Duration(milliseconds: 1)),
     );
   }
+
+  /// Fully qualified label for the selected period.
+  String fullLabel(DateTime date) {
+    final first = start(date);
+    return switch (this) {
+      week => "${first.year}年${first.month}月${first.day}日当周",
+      month => "${first.year}年${first.month}月",
+      year => "${first.year}年",
+    };
+  }
 }
 
 bool isSettledLedgerEntry(Transaction row, DateTime now) =>
@@ -37,6 +49,46 @@ bool isSettledLedgerEntry(Transaction row, DateTime now) =>
     !row.transactionDate.isAfter(now);
 
 const ledgerCurrency = "CNY";
+
+/// Chooses a populated period for a chart whose current selection is empty.
+DateTime? findLedgerAlternativePeriod({
+  required LedgerInterval interval,
+  required DateTime anchor,
+  required DateTime now,
+  required bool expense,
+}) {
+  DateTime? latestIn(TimeRange range) {
+    final query = TransactionFilter(
+      range: TransactionFilterTimeRange.fromTimeRange(range),
+      currencies: const [ledgerCurrency],
+      isPending: false,
+      minAmount: expense ? null : .005,
+      maxAmount: expense ? -.005 : null,
+    ).queryBuilder().build();
+    try {
+      return query
+          .find()
+          .where((row) => isSettledLedgerEntry(row, now))
+          .firstOrNull
+          ?.transactionDate
+          .toLocal();
+    } finally {
+      query.close();
+    }
+  }
+
+  final previousEnd = interval
+      .start(anchor)
+      .subtract(const Duration(milliseconds: 1));
+  final historyStart = DateTime(1900);
+  return (interval == LedgerInterval.month
+          ? latestIn(interval.range(DateTime(anchor.year - 1, anchor.month)))
+          : null) ??
+      (previousEnd.isAfter(historyStart)
+          ? latestIn(CustomTimeRange(historyStart, previousEnd))
+          : null) ??
+      latestIn(CustomTimeRange(historyStart, now));
+}
 
 class LedgerCategoryTotal {
   LedgerCategoryTotal(this.id, this.name);

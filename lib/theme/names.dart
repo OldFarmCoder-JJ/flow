@@ -1,5 +1,5 @@
 final Map<String, String> themeNames = {
-  "ledgerLight": "暖白琥珀",
+  "ledgerLight": "薄荷白",
   // LIGHT
   "defaultLightBase": "Flow - Shade of Violet",
   "shadeOfViolet": "Flow - Shade of Violet",

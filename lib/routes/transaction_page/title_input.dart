@@ -92,6 +92,8 @@ class TitleInput extends StatelessWidget {
                   onSubmitted: onSubmitted,
                   autocorrect: false,
                   decoration: InputDecoration(
+                    labelText: "profile.name".t(context),
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                     hintText: fallbackTitle,
                     hintStyle: context.textTheme.headlineMedium?.copyWith(
                       color: context.textTheme.headlineMedium?.color?.withAlpha(

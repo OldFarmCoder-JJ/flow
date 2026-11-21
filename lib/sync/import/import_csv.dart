@@ -1,6 +1,7 @@
 import "dart:async";
 
 import "package:flow/data/flow_icon.dart";
+import "package:flow/data/legacy_shark_entry.dart";
 import "package:flow/entity/account.dart";
 import "package:flow/entity/backup_entry.dart";
 import "package:flow/entity/category.dart";
@@ -181,13 +182,19 @@ class ImportCSV extends Importer {
     ) {
       final Account resolvedAccount =
           accountsCache[accountNameUuidMapping[csvt.account]!]!;
+      final correctedName = legacySharkEntryName(
+        account: csvt.account,
+        category: csvt.category,
+        title: csvt.title,
+        note: csvt.notes,
+      );
 
       final Transaction transaction =
           Transaction(
               uuid: UuidV4().generate(),
               amount: csvt.amount,
-              title: csvt.title,
-              description: csvt.notes,
+              title: correctedName ?? csvt.title,
+              description: correctedName == null ? csvt.notes : null,
               transactionDate: csvt.transactionDate,
               currency: resolvedAccount.currency,
             )

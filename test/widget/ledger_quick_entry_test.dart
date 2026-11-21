@@ -77,7 +77,7 @@ void main() {
     addTearDown(tester.view.resetViewInsets);
   }
 
-  testWidgets("quick expense saves note and photo with the chosen category", (
+  testWidgets("quick expense saves name, note, category and photo", (
     tester,
   ) async {
     setPhoneSize(tester);
@@ -115,6 +115,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(fields.first, "24.50");
     await tester.enterText(fields.last, "午餐");
+    await tester.tap(find.byTooltip("添加备注"));
+    await tester.pumpAndSettle();
+    await tester.enterText(fields.last, "同事聚餐");
     await tester.testTextInput.receiveAction(TextInputAction.done);
     tester.view.resetViewInsets();
     await tester.pumpAndSettle();
@@ -142,6 +145,7 @@ void main() {
     expect(transaction.category.target?.uuid, meals.uuid);
     expect(transaction.account.target?.uuid, account.uuid);
     expect(transaction.title, "午餐");
+    expect(transaction.description, "同事聚餐");
     expect(
       transaction.attachments.single.file.readAsBytesSync(),
       receipt.readAsBytesSync(),

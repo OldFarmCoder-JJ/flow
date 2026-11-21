@@ -66,16 +66,19 @@ class _StatsTabState extends State<StatsTab>
                         ),
                       ),
                     ),
-                    TextButton.icon(
-                      onPressed: () => setState(() => showTrend = !showTrend),
-                      icon: Icon(
-                        showTrend ? Icons.donut_large : Icons.show_chart,
-                        size: 18,
-                      ),
-                      label: Text(showTrend ? "分类占比" : "收支趋势"),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(48, 48),
-                        textStyle: const TextStyle(fontSize: 13),
+                    Tooltip(
+                      message: showTrend ? "切换到分类占比" : "切换到收支趋势",
+                      child: TextButton.icon(
+                        onPressed: () => setState(() => showTrend = !showTrend),
+                        icon: Icon(
+                          showTrend ? Icons.show_chart : Icons.donut_large,
+                          size: 18,
+                        ),
+                        label: Text(showTrend ? "收支趋势" : "分类占比"),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                          textStyle: const TextStyle(fontSize: 13),
+                        ),
                       ),
                     ),
                   ],
@@ -141,7 +144,7 @@ class _StatsTabState extends State<StatsTab>
                         now: now,
                         expense: expense,
                       );
-                      return buildReport(stats);
+                      return buildReport(stats, now);
                     },
                   ),
                 ),
@@ -197,7 +200,7 @@ class _StatsTabState extends State<StatsTab>
       date == current ? "本周" : "${date.month}/${date.day}起",
   };
 
-  Widget buildReport(LedgerStats stats) {
+  Widget buildReport(LedgerStats stats, DateTime now) {
     final kind = expense ? "支出" : "收入";
     final categories = CategoriesProvider.of(context);
     return ValueListenableBuilder<bool?>(
@@ -217,37 +220,70 @@ class _StatsTabState extends State<StatsTab>
               child: Padding(padding: EdgeInsets.all(24), child: Text("金额已隐藏")),
             )
           else if (stats.totalCents == 0)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Center(child: Text("本期暂无$kind")),
-            )
-          else if (showTrend)
-            _LedgerTrend(stats: stats, interval: interval, kind: kind)
-          else ...[
-            _LedgerRing(
-              stats: stats,
+            _EmptyLedgerPeriod(
+              label: interval.fullLabel(anchor),
               kind: kind,
-              selectedCategory: selectedCategory,
-              onSelect: (value) => setState(() => selectedCategory = value),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              "$kind分类",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 6),
-            for (final category in stats.categories)
-              _CategoryRank(
-                category: category,
-                icon: LedgerCategoryIcon(
-                  category: categories.get(category.id),
-                  diameter: 33,
-                  tint: categoryColor(category.id),
-                ),
-                total: stats.totalCents,
-                selected: selectedCategory == category.id,
-                onTap: () => openCategory(category, kind),
+              alternative: findLedgerAlternativePeriod(
+                interval: interval,
+                anchor: anchor,
+                now: now,
+                expense: expense,
               ),
+              interval: interval,
+              onSelect: (date) => updatePeriod(interval, date),
+            )
+          else ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                interval.fullLabel(anchor),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            if (showTrend)
+              _LedgerTrend(stats: stats, interval: interval, kind: kind)
+            else ...[
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(17),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: _LedgerRing(
+                    stats: stats,
+                    kind: kind,
+                    selectedCategory: selectedCategory,
+                    onSelect: (value) =>
+                        setState(() => selectedCategory = value),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                "$kind分类",
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              for (final category in stats.categories)
+                _CategoryRank(
+                  category: category,
+                  icon: LedgerCategoryIcon(
+                    category: categories.get(category.id),
+                    diameter: 33,
+                    tint: categoryColor(category.id),
+                  ),
+                  total: stats.totalCents,
+                  selected: selectedCategory == category.id,
+                  onTap: () => openCategory(category, kind),
+                ),
+            ],
           ],
         ],
       ),
@@ -282,6 +318,56 @@ class _StatsTabState extends State<StatsTab>
   bool get wantKeepAlive => true;
 }
 
+class _EmptyLedgerPeriod extends StatelessWidget {
+  const _EmptyLedgerPeriod({
+    required this.label,
+    required this.kind,
+    required this.alternative,
+    required this.interval,
+    required this.onSelect,
+  });
+
+  final String label;
+  final String kind;
+  final DateTime? alternative;
+  final LedgerInterval interval;
+  final ValueChanged<DateTime> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(17),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Icon(
+              Icons.calendar_today_outlined,
+              color: colors.primary,
+              size: 24,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              "$label暂无$kind",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            if (alternative case final date?)
+              TextButton(
+                onPressed: () => onSelect(date),
+                child: Text("查看${interval.fullLabel(date)}"),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 Widget ledgerAmount(int cents, {TextStyle? style}) =>
     MoneyText(Money(cents / 100, ledgerCurrency), style: style);
 
@@ -289,13 +375,13 @@ String percentage(int cents, int total) =>
     "${(cents * 100 / total).toStringAsFixed(1)}%";
 
 const _categoryColors = [
-  Color(0xFFF2AE3F),
-  Color(0xFF65A8E4),
-  Color(0xFF50B9A0),
-  Color(0xFFED866F),
-  Color(0xFF9A8CE6),
-  Color(0xFFE783B4),
-  Color(0xFF87A964),
+  Color(0xFFFFBD49),
+  Color(0xFF51A1EC),
+  Color(0xFF1AB89E),
+  Color(0xFFF88877),
+  Color(0xFF9879ED),
+  Color(0xFFEA76AB),
+  Color(0xFF83BB5A),
 ];
 
 Color categoryColor(int id) => _categoryColors[id % _categoryColors.length];

@@ -49,6 +49,7 @@ class LocalPreferences {
   late final BoolSettingsEntry autoAttachTransactionGeo;
 
   late final BoolSettingsEntry ledgerThemeMigrated;
+  late final BoolSettingsEntry ledgerEntryNamesMigrated;
   late final BoolSettingsEntry privacyMode;
   late final BoolSettingsEntry privacyModeUponShaking;
 
@@ -142,6 +143,11 @@ class LocalPreferences {
 
     ledgerThemeMigrated = BoolSettingsEntry(
       key: "ledgerThemeMigrated",
+      preferences: _prefs,
+      initialValue: false,
+    );
+    ledgerEntryNamesMigrated = BoolSettingsEntry(
+      key: "ledgerEntryNamesMigrated",
       preferences: _prefs,
       initialValue: false,
     );

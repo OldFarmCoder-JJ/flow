@@ -153,7 +153,11 @@ class _EntryComposer extends StatelessWidget {
     required this.category,
     required this.amount,
     required this.amountFocus,
+    required this.name,
     required this.note,
+    required this.noteFocus,
+    required this.showNote,
+    required this.onOpenNote,
     required this.photos,
     required this.dateLabel,
     required this.accountLabel,
@@ -169,7 +173,11 @@ class _EntryComposer extends StatelessWidget {
   final Category category;
   final TextEditingController amount;
   final FocusNode amountFocus;
+  final TextEditingController name;
   final TextEditingController note;
+  final FocusNode noteFocus;
+  final bool showNote;
+  final VoidCallback onOpenNote;
   final List<XFile> photos;
   final String dateLabel;
   final String accountLabel;
@@ -184,6 +192,17 @@ class _EntryComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final fieldDecoration = InputDecoration(
+      counterText: "",
+      isDense: true,
+      filled: true,
+      fillColor: colors.surface,
+      contentPadding: const EdgeInsets.all(11),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
@@ -250,26 +269,20 @@ class _EntryComposer extends StatelessWidget {
               children: [
                 Expanded(
                   child: TextField(
-                    controller: note,
+                    controller: name,
                     enabled: !busy,
                     textInputAction: TextInputAction.done,
                     maxLength: Transaction.maxTitleLength,
                     style: const TextStyle(fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: "添加备注",
-                      counterText: "",
-                      isDense: true,
-                      filled: true,
-                      fillColor: colors.surface,
-                      contentPadding: const EdgeInsets.all(11),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
+                    decoration: fieldDecoration.copyWith(hintText: "名称（选填）"),
                   ),
                 ),
                 const SizedBox(width: 4),
+                IconButton(
+                  onPressed: busy ? null : onOpenNote,
+                  tooltip: "添加备注",
+                  icon: const Icon(Icons.note_add_outlined, size: 22),
+                ),
                 IconButton(
                   onPressed: busy || pickingPhoto ? null : onPhoto,
                   tooltip: "添加照片",
@@ -280,6 +293,20 @@ class _EntryComposer extends StatelessWidget {
                 ),
               ],
             ),
+            if (showNote)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: TextField(
+                  controller: note,
+                  focusNode: noteFocus,
+                  enabled: !busy,
+                  textInputAction: TextInputAction.done,
+                  maxLength: Transaction.maxDescriptionLength,
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: fieldDecoration.copyWith(hintText: "备注（选填）"),
+                ),
+              ),
             if (photos.isNotEmpty)
               _EntryPhotos(photos: photos, onRemove: busy ? null : onRemove),
             Row(

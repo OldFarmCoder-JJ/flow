@@ -51,6 +51,7 @@ import "package:flow/widgets/general/approximate_money_text.dart";
 import "package:flow/widgets/general/button.dart";
 import "package:flow/widgets/general/directional_chevron.dart";
 import "package:flow/widgets/general/flow_icon.dart";
+import "package:flow/widgets/general/ledger_category_icon.dart";
 import "package:flow/widgets/general/form_close_button.dart";
 import "package:flow/widgets/general/info_text.dart";
 import "package:flow/widgets/general/money_text.dart";
@@ -528,10 +529,8 @@ class _TransactionPageState extends State<TransactionPage> {
                           child: ListTile(
                             leading: _selectedCategory == null
                                 ? null
-                                : FlowIcon(
-                                    _selectedCategory!.icon,
-                                    plated: true,
-                                    colorScheme: _selectedCategory!.colorScheme,
+                                : LedgerCategoryIcon(
+                                    category: _selectedCategory,
                                   ),
                             title: Text(
                               _selectedCategory?.name ??
@@ -1747,11 +1746,6 @@ class _TransactionPageState extends State<TransactionPage> {
   }
 
   String get fallbackTitle {
-    if (UserPreferencesService().useCategoryNameForUntitledTransactions &&
-        _selectedCategory?.name != null) {
-      return _selectedCategory!.name;
-    }
-
     return switch (_transactionType) {
       TransactionType.transfer
           when _selectedAccount != null && _selectedAccountTransferTo != null =>

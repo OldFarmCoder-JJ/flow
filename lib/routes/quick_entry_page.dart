@@ -49,8 +49,10 @@ class QuickEntryPage extends StatefulWidget {
 
 class _QuickEntryPageState extends State<QuickEntryPage> {
   final _amount = TextEditingController();
+  final _name = TextEditingController();
   final _note = TextEditingController();
   final _amountFocus = FocusNode();
+  final _noteFocus = FocusNode();
   final _photoPicker = ImagePicker();
   final List<XFile> _photos = [];
   final _gridScroll = ScrollController();
@@ -62,12 +64,15 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
   String? _accountId;
   bool _saving = false;
   bool _pickingPhoto = false;
+  bool _showNote = false;
 
   @override
   void dispose() {
     _amount.dispose();
+    _name.dispose();
     _note.dispose();
     _amountFocus.dispose();
+    _noteFocus.dispose();
     _gridScroll.dispose();
     super.dispose();
   }
@@ -113,6 +118,11 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
       if (!mounted) return;
       _amountFocus.requestFocus();
     });
+  }
+
+  void _openNote() {
+    setState(() => _showNote = true);
+    _noteFocus.requestFocus();
   }
 
   @override
@@ -170,7 +180,11 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
                           category: pickedCategory,
                           amount: _amount,
                           amountFocus: _amountFocus,
+                          name: _name,
                           note: _note,
+                          noteFocus: _noteFocus,
+                          showNote: _showNote,
+                          onOpenNote: _openNote,
                           photos: _photos,
                           dateLabel: _date == null
                               ? "今天"
@@ -277,6 +291,7 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
       _amountFocus.requestFocus();
       return;
     }
+    final name = _name.text.trim();
     final note = _note.text.trim();
     final date = _date ?? DateTime.now();
     final signedAmount = _type == TransactionType.expense ? -amount : amount;
@@ -294,7 +309,8 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
       ObjectBox().store.runInTransaction(TxMode.write, () {
         account.createAndSaveTransaction(
           amount: signedAmount,
-          title: note.isEmpty ? null : note,
+          title: name.isEmpty ? null : name,
+          description: note.isEmpty ? null : note,
           category: category,
           transactionDate: date,
           attachments: attachments,

@@ -39,6 +39,7 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
   late final TextEditingController _nameTextController;
 
   late FlowIconData? _iconData;
+  String? _initialIconDisplayCode;
 
   late final Category? _currentlyEditing;
 
@@ -65,6 +66,7 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
         text: _currentlyEditing?.name,
       );
       _iconData = _currentlyEditing?.icon;
+      _initialIconDisplayCode = _iconData?.toString();
       _colorSchemeName = _currentlyEditing?.colorSchemeName;
     }
   }
@@ -154,7 +156,9 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
     if (_currentlyEditing == null) return;
 
     _currentlyEditing.name = formattedName;
-    _currentlyEditing.iconCode = iconCodeOrError;
+    if (_initialIconDisplayCode != _iconData?.toString()) {
+      _currentlyEditing.iconCode = iconCodeOrError;
+    }
     _currentlyEditing.colorSchemeName = _colorSchemeName;
 
     ObjectBox().box<Category>().put(_currentlyEditing, mode: PutMode.update);
@@ -189,7 +193,7 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
   bool hasChanged() {
     if (_currentlyEditing != null) {
       return _currentlyEditing.name != _nameTextController.text.trim() ||
-          _currentlyEditing.iconCode != iconCodeOrError ||
+          _initialIconDisplayCode != _iconData?.toString() ||
           _currentlyEditing.colorSchemeName != _colorSchemeName;
     }
 

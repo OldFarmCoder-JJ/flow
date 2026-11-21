@@ -106,11 +106,12 @@ class TransactionListTile extends StatelessWidget {
       return Container();
     }
 
+    final categoryName = transaction.category.target?.name;
     final String resolvedTitle = switch (transaction.title) {
       String title when title.isNotEmpty => title,
       _ =>
         ((effectiveTheme.useCategoryNameForUntitledTransactionsOrDefault
-                ? transaction.category.target?.name
+                ? categoryName
                 : null) ??
             "transaction.fallbackTitle".t(context)),
     };
@@ -120,15 +121,16 @@ class TransactionListTile extends StatelessWidget {
         : null;
 
     final List<InlineSpan> subtitleComponents = [
+      if (effectiveTheme.showCategoryOrDefault &&
+          categoryName != null &&
+          categoryName != resolvedTitle)
+        TextSpan(text: categoryName),
       TextSpan(
         text: (transaction.isTransfer && combineTransfers)
             ? "${AccountsProvider.of(context).getName(transfer!.fromAccountUuid)} ${context.isRtl ? "←" : "→"} ${AccountsProvider.of(context).getName(transfer.toAccountUuid)}"
             : (AccountsProvider.of(context).getName(transaction.accountUuid) ??
                   transaction.account.target?.name),
       ),
-      if (effectiveTheme.showCategoryOrDefault &&
-          transaction.category.target != null)
-        TextSpan(text: transaction.category.target!.name),
       if (effectiveTheme.showExternalSourceOrDefault)
         if (transaction.externalProviderName
             case String externalProviderName) ...[

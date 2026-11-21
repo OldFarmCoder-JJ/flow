@@ -53,7 +53,7 @@ class Navbar extends StatelessWidget {
                         DecoratedBox(
                           decoration: BoxDecoration(
                             color: colors.brightness == Brightness.light
-                                ? const Color(0xFFF4B63F)
+                                ? const Color(0xFFFFD453)
                                 : colors.primary,
                             shape: BoxShape.circle,
                           ),

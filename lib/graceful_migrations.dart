@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:flow/data/flow_icon.dart";
 import "package:flow/data/legacy_simple_icons_codepoints.dart";
+import "package:flow/data/legacy_shark_entry.dart";
 import "package:flow/data/transaction_filter.dart";
 import "package:flow/data/transactions_filter/pending_time_range.dart";
 import "package:flow/entity/account.dart";
@@ -19,6 +20,42 @@ import "package:logging/logging.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 final Logger _log = Logger("GracefulMigrations");
+
+/// Corrects names stored as memos by the original Shark CSV converter.
+int repairLegacySharkEntryNames() {
+  final db = ObjectBox();
+  final box = db.box<Transaction>();
+  final builder = box.query(
+    Transaction_.title.notNull().and(Transaction_.description.notNull()),
+  );
+  builder.link(
+    Transaction_.account,
+    Account_.name.equals(legacySharkAccountName),
+  );
+  final query = builder.build();
+  try {
+    return db.store.runInTransaction(TxMode.write, () {
+      final corrections = <Transaction>[];
+      for (final transaction in query.find()) {
+        if (transaction.isTransfer) continue;
+        final correctedName = legacySharkEntryName(
+          account: transaction.account.target?.name,
+          category: transaction.category.target?.name,
+          title: transaction.title,
+          note: transaction.description,
+        );
+        if (correctedName == null) continue;
+        transaction.title = correctedName;
+        transaction.description = null;
+        corrections.add(transaction);
+      }
+      box.putMany(corrections);
+      return corrections.length;
+    });
+  } finally {
+    query.close();
+  }
+}
 
 void migratePrimaryCurrencyToDb() async {
   const String migrationUuid = "3fa20881-f866-4b11-943e-dd645bc8b3d5";

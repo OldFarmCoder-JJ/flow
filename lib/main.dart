@@ -152,6 +152,21 @@ void main() async {
     startupLog.severe("Failed to initialize UserPreferencesService", e);
   }
 
+  try {
+    final migration = LocalPreferences().ledgerEntryNamesMigrated;
+    if (!migration.get()) {
+      repairLegacySharkEntryNames();
+      UserPreferencesService().transactionListTileShowCategoryName = true;
+      await migration.set(true);
+    }
+  } catch (error, stackTrace) {
+    startupLog.warning(
+      "Failed to update ledger entry names",
+      error,
+      stackTrace,
+    );
+  }
+
   // Must run after [UserPreferencesService] has loaded from ObjectBox
   unawaited(
     TransitiveLocalPreferences().sessionPrivacyMode
