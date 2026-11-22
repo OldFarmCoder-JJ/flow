@@ -198,7 +198,7 @@ class _EntryComposer extends StatelessWidget {
   final VoidCallback onOpenNote;
   final List<XFile> photos;
   final String dateLabel;
-  final String accountLabel;
+  final String? accountLabel;
   final bool busy;
   final bool pickingPhoto;
   final VoidCallback onDate;
@@ -342,11 +342,12 @@ class _EntryComposer extends StatelessWidget {
                         icon: Icons.calendar_today_outlined,
                         onPressed: busy ? null : onDate,
                       ),
-                      _EntryOption(
-                        label: accountLabel,
-                        icon: Icons.account_balance_wallet_outlined,
-                        onPressed: busy ? null : onAccount,
-                      ),
+                      if (accountLabel case final label?)
+                        _EntryOption(
+                          label: label,
+                          icon: Icons.account_balance_wallet_outlined,
+                          onPressed: busy ? null : onAccount,
+                        ),
                     ],
                   ),
                 ),

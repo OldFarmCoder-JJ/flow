@@ -1,3 +1,4 @@
+import "package:flow/data/legacy_shark_entry.dart";
 import "dart:io";
 
 import "package:flow/data/ledger_stats.dart";
@@ -207,9 +208,10 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
                           dateLabel: _date == null
                               ? "今天"
                               : "${date.month}月${date.day}日",
-                          accountLabel:
-                              account?.name ??
-                              (accounts.ready ? "新建账户" : "读取账户"),
+                          accountLabel: cnyAccounts.length == 1
+                              ? null
+                              : entryAccountLabel(account?.name) ??
+                                    (accounts.ready ? "新建账户" : "读取账户"),
                           busy: _saving,
                           pickingPhoto: _pickingPhoto,
                           onDate: _pickDate,
@@ -262,7 +264,7 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
         children: [
           for (final account in accounts)
             ListTile(
-              title: Text(account.name),
+              title: Text(entryAccountLabel(account.name)!),
               trailing: account.uuid == current
                   ? const Icon(Icons.check)
                   : null,

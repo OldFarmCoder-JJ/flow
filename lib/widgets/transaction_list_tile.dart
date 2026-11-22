@@ -1,3 +1,4 @@
+import "package:flow/data/legacy_shark_entry.dart";
 import "package:flow/data/flow_icon.dart";
 import "package:flow/data/money.dart";
 import "package:flow/data/transaction_filter.dart";
@@ -120,17 +121,21 @@ class TransactionListTile extends StatelessWidget {
         ? transaction.extensions.transfer
         : null;
 
+    final accountName =
+        AccountsProvider.of(context).getName(transaction.accountUuid) ??
+        transaction.account.target?.name;
     final List<InlineSpan> subtitleComponents = [
       if (effectiveTheme.showCategoryOrDefault &&
           categoryName != null &&
           categoryName != resolvedTitle)
         TextSpan(text: categoryName),
-      TextSpan(
-        text: (transaction.isTransfer && combineTransfers)
-            ? "${AccountsProvider.of(context).getName(transfer!.fromAccountUuid)} ${context.isRtl ? "←" : "→"} ${AccountsProvider.of(context).getName(transfer.toAccountUuid)}"
-            : (AccountsProvider.of(context).getName(transaction.accountUuid) ??
-                  transaction.account.target?.name),
-      ),
+      if (transaction.isTransfer ||
+          (accountName != null && accountName != legacySharkAccountName))
+        TextSpan(
+          text: (transaction.isTransfer && combineTransfers)
+              ? "${AccountsProvider.of(context).getName(transfer!.fromAccountUuid)} ${context.isRtl ? "←" : "→"} ${AccountsProvider.of(context).getName(transfer.toAccountUuid)}"
+              : accountName,
+        ),
       if (effectiveTheme.showExternalSourceOrDefault)
         if (transaction.externalProviderName
             case String externalProviderName) ...[

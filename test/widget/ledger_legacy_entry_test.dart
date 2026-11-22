@@ -1,3 +1,5 @@
+import "package:flow/data/monthly_reserve.dart";
+import "package:flow/routes/home/spending_room_tab.dart";
 import "package:flow/data/dining_expense_emoji.dart";
 import "package:flow/routes/preferences/theme_preferences_page.dart";
 import "package:flow/theme/ledger_appearance.dart";
@@ -130,6 +132,53 @@ void main() {
       clothes,
       custom,
     ], child: TransactionTagsProvider(const [], child: child)),
+  );
+
+  testWidgets(
+    "spendable balance deducts each yuan only once and persists by month",
+    (tester) async {
+      final now = DateTime.now();
+      final ids = [
+        legacy.createAndSaveTransaction(amount: 1000),
+        legacy.createAndSaveTransaction(amount: -150, category: shopping),
+        wallet.createAndSaveTransaction(amount: -80, category: clothes),
+      ];
+      final pref = LocalPreferences().monthlyReservePlan(now);
+      await pref.set(
+        MonthlyReserve(savings: 10000, limits: {shopping.uuid: 20000}).encode(),
+      );
+      addTearDown(() async {
+        db.box<Transaction>().removeMany(ids);
+        await pref.remove();
+      });
+      await tester.pumpWidget(
+        MaterialApp(home: providers(const Scaffold(body: SpendingRoomTab()))),
+      );
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text("¥ 620.00"), findsOneWidget);
+      expect(find.text("待付 50.00"), findsOneWidget);
+      await tester.tap(find.text("储蓄目标"));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), "250");
+      await tester.tap(find.text("保存"));
+      await tester.pumpAndSettle();
+      expect(find.text("¥ 470.00"), findsOneWidget);
+      expect(
+        MonthlyReserve.decode(
+          LocalPreferences().monthlyReservePlan(now).value,
+        ).savings,
+        25000,
+      );
+      await tester.tap(find.byTooltip("上个月"));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text("¥ 0.00"), findsOneWidget);
+    },
   );
 
   testWidgets(

@@ -94,6 +94,11 @@ class PreferencesPageState extends State<PreferencesPage> {
                 title: Text("preferences.reminders".t(context)),
                 onTap: () => context.push("/preferences/reminders"),
               ),
+            ListTile(
+              leading: const Icon(Icons.account_balance_wallet_outlined),
+              title: const Text("管理账户"),
+              onTap: () => context.push("/accounts"),
+            ),
             if (_showLockApp) const LockApp(),
           ],
         ),

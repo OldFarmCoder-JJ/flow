@@ -6,7 +6,7 @@ import "package:flow/data/flow_notification_payload.dart";
 import "package:flow/prefs/local_preferences.dart";
 import "package:flow/providers/accounts_provider.dart";
 import "package:flow/routes.dart";
-import "package:flow/routes/home/accounts_tab.dart";
+import "package:flow/routes/home/spending_room_tab.dart";
 import "package:flow/routes/home/home_tab.dart";
 import "package:flow/routes/home/profile_tab.dart";
 import "package:flow/routes/home/stats_tab.dart";
@@ -152,7 +152,7 @@ class HomePageState extends State<HomePage>
                   children: [
                     HomeTab(scrollController: _homeTabScrollController),
                     const StatsTab(),
-                    const SafeArea(child: AccountsTab()),
+                    const SafeArea(child: SpendingRoomTab()),
                     const SafeArea(child: ProfileTab()),
                   ],
                 ),

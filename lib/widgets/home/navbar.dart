@@ -75,7 +75,7 @@ class Navbar extends StatelessWidget {
               ),
               NavbarButton(
                 index: 2,
-                tooltip: "tabs.accounts".t(context),
+                tooltip: "可支配",
                 icon: Symbols.wallet_rounded,
                 onTap: onTap,
                 activeIndex: activeIndex,
@@ -134,7 +134,7 @@ class Navbar extends StatelessWidget {
           const SizedBox(width: 64.0 + 12.0 + 12.0),
           NavbarButton(
             index: 2,
-            tooltip: "tabs.accounts".t(context),
+            tooltip: "可支配",
             icon: Symbols.wallet_rounded,
             onTap: onTap,
             activeIndex: activeIndex,

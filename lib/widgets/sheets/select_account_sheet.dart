@@ -1,3 +1,4 @@
+import "package:flow/data/legacy_shark_entry.dart";
 import "package:flow/entity/account.dart";
 import "package:flow/l10n/extensions.dart";
 import "package:flow/utils/simple_query_sorter.dart";
@@ -93,7 +94,7 @@ class _SelectAccountSheetState extends State<SelectAccountSheet> {
             ...results.map(
               (account) => ListTile(
                 key: ValueKey(account.uuid),
-                title: Text(account.name),
+                title: Text(entryAccountLabel(account.name)!),
                 subtitle: widget.showBalance
                     ? MoneyText(
                         account.balance,

@@ -1,3 +1,4 @@
+import "package:flow/data/legacy_shark_entry.dart";
 import "dart:async";
 import "dart:io";
 
@@ -458,7 +459,7 @@ class _TransactionPageState extends State<TransactionPage> {
                               ? null
                               : FlowIcon(_selectedAccount!.icon, plated: true),
                           title: Text(
-                            _selectedAccount?.name ??
+                            entryAccountLabel(_selectedAccount?.name) ??
                                 "transaction.edit.selectAccount".t(context),
                           ),
                           subtitle:
@@ -490,7 +491,9 @@ class _TransactionPageState extends State<TransactionPage> {
                                     plated: true,
                                   ),
                             title: Text(
-                              _selectedAccountTransferTo?.name ??
+                              entryAccountLabel(
+                                    _selectedAccountTransferTo?.name,
+                                  ) ??
                                   "transaction.edit.selectAccount".t(context),
                             ),
                             subtitle:

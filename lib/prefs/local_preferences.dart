@@ -90,6 +90,13 @@ class LocalPreferences {
   late final EnyLocalPreferences eny;
   late final InsightsLocalPreferences insights;
 
+  /// Device-local reserve plan for a single calendar month.
+  PrimitiveSettingsEntry<String> monthlyReservePlan(DateTime month) =>
+      PrimitiveSettingsEntry<String>(
+        key: "ledger.reserve.${month.year}.${month.month}",
+        preferences: _prefs,
+      );
+
   LocalPreferences._internal(this._prefs) {
     SettingsEntry.defaultPrefix = "flow.";
 
