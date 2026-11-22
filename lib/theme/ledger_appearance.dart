@@ -1,4 +1,41 @@
+import "package:flow/theme/color_themes/registry.dart";
+import "package:flow/theme/flow_color_scheme.dart";
 import "package:flutter/material.dart";
+
+/// Accent families with coordinated daylight and evening surfaces.
+enum LedgerPalette {
+  mint("薄荷青", Color(0xff006d5b)),
+  ocean("海盐蓝", Color(0xff376aa0)),
+  lilac("鸢尾紫", Color(0xff795799)),
+  amber("琥珀茶", Color(0xff95652d)),
+  rose("山茶红", Color(0xffa34f66));
+
+  const LedgerPalette(this.label, this.seed);
+  final String label;
+  final Color seed;
+
+  static LedgerPalette fromName(String? name) =>
+      values.firstWhere((p) => p.name == name, orElse: () => mint);
+
+  FlowColorScheme scheme(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final original = dark ? ledgerDark : ledgerLight;
+    if (this == mint) return original;
+    final base = ColorScheme.fromSeed(seedColor: seed, brightness: brightness);
+    return FlowColorScheme(
+      name: "${name}_${brightness.name}",
+      isDark: dark,
+      surface: base.surface,
+      onSurface: base.onSurface,
+      primary: base.primary,
+      onPrimary: base.onPrimary,
+      secondary: base.surfaceContainer,
+      onSecondary: base.onSurface,
+      base: base,
+      customColors: original.customColors,
+    );
+  }
+}
 
 /// Display choices for the personal ledger, using the device's local time.
 enum LedgerAppearance {

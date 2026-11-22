@@ -57,6 +57,7 @@ class LocalPreferences {
 
   late final BoolSettingsEntry autoAttachTransactionGeo;
 
+  late final PrimitiveSettingsEntry<String> ledgerPalette;
   late final PrimitiveSettingsEntry<String> ledgerAppearance;
   late final BoolSettingsEntry ledgerThemeMigrated;
   late final BoolSettingsEntry ledgerEntryNamesMigrated;
@@ -155,6 +156,10 @@ class LocalPreferences {
       initialValue: false,
     );
 
+    ledgerPalette = PrimitiveSettingsEntry<String>(
+      key: "ledgerPalette",
+      preferences: _prefs,
+    );
     ledgerAppearance = PrimitiveSettingsEntry<String>(
       key: "ledgerAppearance",
       preferences: _prefs,

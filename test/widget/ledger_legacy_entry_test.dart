@@ -105,6 +105,13 @@ void main() {
     await tester.tap(find.text("深色"));
     await tester.pumpAndSettle();
     expect(pref.value, "dark");
+    await tester.tap(find.text("鸢尾紫"));
+    await tester.pumpAndSettle();
+    expect(LocalPreferences().ledgerPalette.value, "lilac");
+    for (final palette in LedgerPalette.values) {
+      expect(palette.scheme(Brightness.light).isDark, false);
+      expect(palette.scheme(Brightness.dark).isDark, true);
+    }
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(const MaterialApp(home: ThemePreferencesPage()));
     expect(
@@ -114,6 +121,12 @@ void main() {
           )
           .groupValue,
       LedgerAppearance.dark,
+    );
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, "鸢尾紫"))
+          .selected,
+      isTrue,
     );
     await tester.tap(find.text("夜间自动"));
     await tester.pumpAndSettle();

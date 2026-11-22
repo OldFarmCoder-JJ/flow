@@ -230,8 +230,9 @@ class FlowState extends State<Flow> {
   String? _primaryCurrency;
   ThemeMode _themeMode = ThemeMode.light;
 
-  final _lightTheme = ThemeFactory(ledgerLight);
-  final _darkTheme = ThemeFactory(ledgerDark);
+  var _palette = LedgerPalette.mint;
+  var _lightTheme = ThemeFactory(ledgerLight);
+  var _darkTheme = ThemeFactory(ledgerDark);
   Timer? _appearanceTimer;
 
   ThemeMode get themeMode => _themeMode;
@@ -260,6 +261,7 @@ class FlowState extends State<Flow> {
     _reloadTheme();
 
     LocalPreferences().ledgerAppearance.addListener(_reloadTheme);
+    LocalPreferences().ledgerPalette.addListener(_reloadTheme);
     UserPreferencesService().valueNotifier.addListener(_syncWidgets);
     UserPreferencesService().valueNotifier.addListener(_reloadDateFormat);
 
@@ -342,6 +344,7 @@ class FlowState extends State<Flow> {
       _refreshExchangeRates,
     );
     LocalPreferences().ledgerAppearance.removeListener(_reloadTheme);
+    LocalPreferences().ledgerPalette.removeListener(_reloadTheme);
     UserPreferencesService().valueNotifier.removeListener(_syncWidgets);
     UserPreferencesService().valueNotifier.removeListener(_reloadDateFormat);
 
@@ -493,7 +496,19 @@ class FlowState extends State<Flow> {
       LocalPreferences().ledgerAppearance.value,
     );
     final mode = appearance.modeAt(now);
-    if (mode != _themeMode) setState(() => _themeMode = mode);
+    final palette = LedgerPalette.fromName(
+      LocalPreferences().ledgerPalette.value,
+    );
+    if (mode != _themeMode || palette != _palette) {
+      setState(() {
+        _themeMode = mode;
+        if (palette != _palette) {
+          _palette = palette;
+          _lightTheme = ThemeFactory(palette.scheme(Brightness.light));
+          _darkTheme = ThemeFactory(palette.scheme(Brightness.dark));
+        }
+      });
+    }
     if (appearance == LedgerAppearance.automatic) {
       _appearanceTimer = Timer(
         appearance.nextBoundary(now).difference(now),
