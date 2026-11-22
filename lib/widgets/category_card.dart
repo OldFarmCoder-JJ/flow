@@ -133,6 +133,9 @@ class _CategoryCardState extends State<CategoryCard> {
       shape: RoundedRectangleBorder(borderRadius: borderRadius),
       builder: (context) => InkWell(
         borderRadius: borderRadius,
+        onLongPress: onTapOverride == null
+            ? () => context.push("/category/${category.id}/edit")
+            : null,
         onTap: onTapOverride == null
             ? () => context.push("/category/${category.id}")
             : onTapOverride.value,

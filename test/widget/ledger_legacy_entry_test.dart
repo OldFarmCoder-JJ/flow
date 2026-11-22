@@ -138,7 +138,23 @@ void main() {
     "spendable balance deducts each yuan only once and persists by month",
     (tester) async {
       final now = DateTime.now();
+      final previous = DateTime(now.year, now.month - 1, 5);
+      final beforePrevious = DateTime(now.year, now.month - 2, 5);
+      final oldPref = LocalPreferences().monthlyReservePlan(previous);
+      await oldPref.set(const MonthlyReserve(savings: 50000).encode());
       final ids = [
+        legacy.createAndSaveTransaction(
+          amount: 8974,
+          transactionDate: previous,
+        ),
+        legacy.createAndSaveTransaction(
+          amount: -4394.50,
+          transactionDate: previous,
+        ),
+        legacy.createAndSaveTransaction(
+          amount: -267.13,
+          transactionDate: beforePrevious,
+        ),
         legacy.createAndSaveTransaction(amount: 1000),
         legacy.createAndSaveTransaction(amount: -150, category: shopping),
         wallet.createAndSaveTransaction(amount: -80, category: clothes),
@@ -150,6 +166,7 @@ void main() {
       addTearDown(() async {
         db.box<Transaction>().removeMany(ids);
         await pref.remove();
+        await oldPref.remove();
       });
       await tester.pumpWidget(
         MaterialApp(home: providers(const Scaffold(body: SpendingRoomTab()))),
@@ -172,12 +189,28 @@ void main() {
         ).savings,
         25000,
       );
+      await tester.ensureVisible(find.text("待付 50.00"));
+      await tester.longPress(find.text("待付 50.00"));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("删除这项预留"));
+      await tester.pumpAndSettle();
+      expect(MonthlyReserve.decode(pref.value).limits, isEmpty);
+      expect(find.text("¥ 520.00"), findsOneWidget);
       await tester.tap(find.byTooltip("上个月"));
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 100)),
       );
       await tester.pumpAndSettle();
-      expect(find.text("¥ 0.00"), findsOneWidget);
+      expect(find.text("当月盈余"), findsOneWidget);
+      expect(find.text("¥ 4,579.50"), findsOneWidget);
+      await tester.tap(find.byTooltip("上个月"));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text("当月赤字"), findsOneWidget);
+      expect(find.text("¥ 267.13"), findsOneWidget);
+      expect(find.text("本月还能花"), findsNothing);
     },
   );
 
