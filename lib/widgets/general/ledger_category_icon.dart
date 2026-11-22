@@ -12,6 +12,7 @@ Color ledgerCategoryAccent(Category? category) {
   if (custom != null) return custom;
   final name = category?.name.trim() ?? "";
   return switch (name) {
+    "订阅" => const Color(0xff55849a),
     "购物" => const Color(0xFF8175DF),
     "餐饮" => const Color(0xFF27AA84),
     "娱乐" => const Color(0xFFEF8854),

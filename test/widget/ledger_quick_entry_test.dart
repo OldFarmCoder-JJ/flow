@@ -1,4 +1,5 @@
 import "dart:io";
+import "package:flow/objectbox/actions.dart";
 import "package:flow/data/merchant_mark.dart";
 import "package:flow/routes/merchant_marks_page.dart";
 
@@ -248,6 +249,34 @@ void main() {
     expect(MerchantMark.match("小街角"), isNull);
     await LocalPreferences().merchantMarks.remove();
   });
+
+  testWidgets(
+    "name suggestions follow category, filter input and fill only the name",
+    (tester) async {
+      final id = account.createAndSaveTransaction(
+        title: "晚餐麦当劳",
+        amount: -16,
+        category: meals,
+      );
+      addTearDown(() => db.box<Transaction>().remove(id));
+      setPhoneSize(tester);
+      await tester.pumpWidget(app(const QuickEntryPage()));
+      await tester.tap(find.text("餐饮"));
+      await tester.pumpAndSettle();
+      final fields = find.byType(TextField);
+      await tester.enterText(fields.first, "18");
+      await tester.enterText(fields.at(1), "麦");
+      await tester.tap(find.widgetWithText(ActionChip, "晚餐麦当劳"));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(fields.at(1)).controller!.text, "晚餐麦当劳");
+      expect(tester.widget<TextField>(fields.first).controller!.text, "18");
+      await tester.tap(find.text("收入"));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("工资"));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(ActionChip, "晚餐麦当劳"), findsNothing);
+    },
+  );
 
   testWidgets("entry can start with a category before an account exists", (
     tester,

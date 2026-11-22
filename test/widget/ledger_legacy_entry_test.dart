@@ -1,4 +1,7 @@
 import "package:flow/data/monthly_reserve.dart";
+import "package:flow/data/ledger_category_review.dart";
+import "package:flow/services/monthly_charges.dart";
+import "package:flow/entity/recurring_transaction.dart";
 import "package:flow/routes/home/spending_room_tab.dart";
 import "package:flow/data/dining_expense_emoji.dart";
 import "package:flow/routes/preferences/theme_preferences_page.dart";
@@ -73,6 +76,40 @@ void main() {
     );
     db.box<Account>().putMany([legacy, wallet]);
     db.box<Category>().putMany([shopping, clothes, custom]);
+  });
+
+  test("category review is scoped, repeatable and respects manual edits", () {
+    final rows = db.box<Transaction>();
+    final date = DateTime(2026, 10, 12);
+    int entry(String title, double amount, {String? description}) =>
+        wallet.createAndSaveTransaction(
+          title: title,
+          amount: amount,
+          description: description,
+          transactionDate: date,
+          category: shopping,
+        );
+    final codex = entry(" Codex ", -20);
+    final fallback = entry("购物", -15, description: "百度网盘会员");
+    final vague = entry("会员", -10);
+    final income = entry("Codex", 15);
+    addTearDown(() => rows.removeMany([codex, fallback, vague, income]));
+
+    expect(organizeLedgerCategories(), 2);
+    final updated = rows.get(codex)!;
+    expect(updated.category.target?.name, "订阅");
+    expect(updated.amount, -20);
+    expect(updated.transactionDate, date);
+    expect(updated.title?.trim(), "Codex");
+    expect(rows.get(fallback)!.category.targetId, updated.category.targetId);
+    expect(rows.get(vague)!.category.targetId, shopping.id);
+    expect(rows.get(income)!.category.targetId, shopping.id);
+    updated.setCategory(shopping);
+    rows.put(updated);
+    expect(organizeLedgerCategories(), 0);
+    expect(rows.get(codex)!.category.targetId, shopping.id);
+    expect(reviewedExpenseCategory("娱乐", "LOL皮肤"), "游戏");
+    expect(reviewedExpenseCategory("娱乐", "电影院"), isNull);
   });
 
   test("automatic appearance switches at local calendar boundaries", () {
@@ -202,7 +239,8 @@ void main() {
         ).savings,
         25000,
       );
-      await tester.ensureVisible(find.text("待付 50.00"));
+      await tester.drag(find.byType(ListView).first, const Offset(0, -260));
+      await tester.pumpAndSettle();
       await tester.longPress(find.text("待付 50.00"));
       await tester.pumpAndSettle();
       await tester.tap(find.text("删除这项预留"));
@@ -224,6 +262,53 @@ void main() {
       expect(find.text("当月赤字"), findsOneWidget);
       expect(find.text("¥ 267.13"), findsOneWidget);
       expect(find.text("本月还能花"), findsNothing);
+    },
+  );
+
+  testWidgets(
+    "convert an existing reserve and skip only the generated month's charge",
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(440, 1050);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final now = DateTime.now();
+      final pref = LocalPreferences().monthlyReservePlan(now);
+      await pref.set(MonthlyReserve(limits: {shopping.uuid: 91000}).encode());
+      addTearDown(() async {
+        for (final r in MonthlyCharges.active()) {
+          final t = MonthlyCharges.entry(r, now);
+          if (t != null) db.box<Transaction>().remove(t.id);
+          db.box<RecurringTransaction>().remove(r.id);
+        }
+        await pref.remove();
+      });
+      await tester.pumpWidget(
+        MaterialApp(home: providers(const Scaffold(body: SpendingRoomTab()))),
+      );
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      await tester.longPress(find.text("待付 910.00"));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("改为每月 1 日扣款"));
+      await tester.pumpAndSettle();
+      expect(find.text("910.00"), findsOneWidget);
+      await tester.tap(find.text("保存"));
+      await tester.pumpAndSettle();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text("本月已记 ¥ 910.00"), findsOneWidget);
+      expect(MonthlyReserve.decode(pref.value).limits, isEmpty);
+      await tester.tap(find.text("本月已记 ¥ 910.00"));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("仅跳过本月"));
+      await tester.pumpAndSettle();
+      expect(find.text("本月已跳过"), findsOneWidget);
+      expect(MonthlyCharges.active(), hasLength(1));
     },
   );
 
@@ -302,7 +387,9 @@ void main() {
       );
     }
     expect(diningExpenseEmoji("购物", "鸡蛋"), isNull);
-    expect(diningExpenseEmoji("餐饮", "午餐"), isNull);
+    expect(diningExpenseEmoji("餐饮", "早餐"), "🌅");
+    expect(diningExpenseEmoji("餐饮", "午餐"), "🍱");
+    expect(diningExpenseEmoji("餐饮", "晚餐"), "🌙");
     expect(diningExpenseEmoji("餐饮", null), isNull);
   });
 

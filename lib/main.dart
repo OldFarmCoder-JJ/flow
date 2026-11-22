@@ -43,6 +43,8 @@ import "package:flow/services/local_auth.dart";
 import "package:flow/services/navigation.dart";
 import "package:flow/services/notifications.dart";
 import "package:flow/services/recurring_transactions.dart";
+import "package:flow/services/monthly_charges.dart";
+import "package:flow/data/ledger_category_review.dart";
 import "package:flow/services/sync.dart";
 import "package:flow/services/transactions.dart";
 import "package:flow/services/user_preferences.dart";
@@ -160,6 +162,16 @@ void main() async {
     );
   }
 
+  try {
+    final review = LocalPreferences().ledgerCategoriesReviewed;
+    if (!review.get()) {
+      organizeLedgerCategories();
+      await review.set(true);
+    }
+  } catch (error, stackTrace) {
+    startupLog.warning("Ledger category review failed", error, stackTrace);
+  }
+
   // Clear a session mask saved by older versions before the first frame.
   final mask = TransitiveLocalPreferences().sessionPrivacyMode;
   if (mask.get()) await mask.set(false);
@@ -234,6 +246,23 @@ class FlowState extends State<Flow> {
   var _lightTheme = ThemeFactory(ledgerLight);
   var _darkTheme = ThemeFactory(ledgerDark);
   Timer? _appearanceTimer;
+  Timer? _chargeTimer;
+
+  void _refreshMonthlyCharges() {
+    _chargeTimer?.cancel();
+    final now = DateTime.now();
+    for (final rule in MonthlyCharges.active()) {
+      try {
+        MonthlyCharges.postDue(rule.id, now);
+      } catch (e) {
+        mainLogger.warning("Monthly charge failed", e);
+      }
+    }
+    _chargeTimer = Timer(
+      DateTime(now.year, now.month + 1).difference(now),
+      _refreshMonthlyCharges,
+    );
+  }
 
   ThemeMode get themeMode => _themeMode;
 
@@ -295,6 +324,7 @@ class FlowState extends State<Flow> {
         migrateExtraKeyIndexing().then((_) => migrateGeoExtensionToLocation()),
       );
 
+      _refreshMonthlyCharges();
       // First recurring-transactions sync; deferred to here so it doesn't
       // compete with startup work or first-frame rendering.
       unawaited(
@@ -319,6 +349,7 @@ class FlowState extends State<Flow> {
         _tryTempLock();
       },
       onResume: () {
+        _refreshMonthlyCharges();
         _reloadTheme();
         _unobscure();
         unawaited(_checkForAndroidUpdate());
@@ -355,6 +386,7 @@ class FlowState extends State<Flow> {
 
     _appLifeCycleListener.dispose();
 
+    _chargeTimer?.cancel();
     _appearanceTimer?.cancel();
 
     super.dispose();

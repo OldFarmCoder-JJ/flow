@@ -56,6 +56,7 @@ class Category implements EntityBase {
   }
 
   static const _fallbackIcons = <String, IconData>{
+    "订阅": Icons.subscriptions_outlined,
     "餐饮": Icons.restaurant_outlined,
     "购物": Icons.shopping_bag_outlined,
     "日用": Icons.cleaning_services_outlined,

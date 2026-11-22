@@ -1,4 +1,5 @@
 import "package:flow/data/setup/default_categories.dart";
+import "package:flow/data/ledger_category_review.dart";
 import "package:flow/entity/category.dart";
 import "package:flow/l10n/extensions.dart";
 import "package:flow/objectbox.dart";
@@ -37,7 +38,25 @@ class _CategoriesPageState extends State<CategoriesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("categories".t(context))),
+      appBar: AppBar(
+        title: Text("categories".t(context)),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: "分类操作",
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: "review", child: Text("整理历史分类")),
+            ],
+            onSelected: (_) {
+              final count = organizeLedgerCategories();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(count == 0 ? "没有需要调整的流水" : "已整理 $count 笔支出"),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: StreamBuilder<List<Category>>(
           stream: qb()

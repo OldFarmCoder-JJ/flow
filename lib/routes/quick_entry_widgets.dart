@@ -181,6 +181,7 @@ class _CategoryTile extends StatelessWidget {
 class _EntryComposer extends StatelessWidget {
   const _EntryComposer({
     required this.isExpense,
+    required this.suggestions,
     required this.category,
     required this.amount,
     required this.amountFocus,
@@ -203,6 +204,7 @@ class _EntryComposer extends StatelessWidget {
 
   final Category category;
   final bool isExpense;
+  final List<String> suggestions;
   final TextEditingController amount;
   final FocusNode amountFocus;
   final TextEditingController name;
@@ -329,6 +331,11 @@ class _EntryComposer extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            _NameSuggestions(
+              controller: name,
+              options: suggestions,
+              enabled: !busy,
             ),
             if (showNote)
               Padding(
@@ -496,5 +503,60 @@ class _PhotoSources extends StatelessWidget {
         const SizedBox(height: 8),
       ],
     ),
+  );
+}
+
+class _NameSuggestions extends StatelessWidget {
+  const _NameSuggestions({
+    required this.controller,
+    required this.options,
+    required this.enabled,
+  });
+  final TextEditingController controller;
+  final List<String> options;
+  final bool enabled;
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) => ValueListenableBuilder<TextEditingValue>(
+    valueListenable: controller,
+    builder: (context, value, _) {
+      final query = value.text.trim().toLowerCase();
+      final matches = options
+          .where(
+            (name) =>
+                name.toLowerCase() != query &&
+                name.toLowerCase().contains(query),
+          )
+          .take(6)
+          .toList();
+      if (matches.isEmpty) return const SizedBox.shrink();
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          spacing: 6,
+          children: [
+            for (final name in matches)
+              ActionChip(
+                label: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 200),
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                onPressed: enabled
+                    ? () => controller.value = TextEditingValue(
+                        text: name,
+                        selection: TextSelection.collapsed(offset: name.length),
+                      )
+                    : null,
+              ),
+          ],
+        ),
+      );
+    },
   );
 }

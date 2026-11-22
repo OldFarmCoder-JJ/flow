@@ -1,4 +1,7 @@
 import "dart:io";
+import "package:flow/entity/category.dart";
+import "package:flow/services/monthly_charges.dart";
+import "package:flow/services/transactions.dart";
 
 import "package:flow/entity/account.dart";
 import "package:flow/entity/recurring_transaction.dart";
@@ -52,6 +55,44 @@ void main() {
     obx.box<Transaction>().removeAll();
     obx.box<RecurringTransaction>().removeAll();
   });
+
+  test(
+    "month-start charges catch up once, skip one month and preserve later charges",
+    () async {
+      final wallet = Account(name: "测试账户", currency: "CNY", iconCode: "");
+      final rent = Category(name: "住房", iconCode: "");
+      obx.box<Account>().put(wallet);
+      obx.box<Category>().put(rent);
+      final rule = MonthlyCharges.create(
+        wallet,
+        rent,
+        91000,
+        DateTime(2026, 12),
+        now: DateTime(2026, 11, 22),
+      );
+      expect(obx.box<Transaction>().count(), 0);
+      await RecurringTransactionsService().synchronizeAll(
+        anchor: DateTime(2027, 1, 3),
+      );
+      expect(obx.box<Transaction>().count(), 2);
+      final jan = MonthlyCharges.entry(rule, DateTime(2027, 1))!;
+      expect(jan.transactionDate.toLocal(), DateTime(2027, 1));
+      expect(jan.amount, -910);
+      expect(jan.category.targetId, rent.id);
+      TransactionsService().moveToBinSync(jan.id);
+      MonthlyCharges.changeAmount(rule, 95000);
+      await RecurringTransactionsService().synchronizeAll(
+        anchor: DateTime(2027, 2, 5),
+      );
+      MonthlyCharges.postDue(rule.id, DateTime(2027, 2, 5));
+      expect(obx.box<Transaction>().count(), 3);
+      expect(MonthlyCharges.entry(rule, DateTime(2027, 1))!.isDeleted, true);
+      expect(MonthlyCharges.entry(rule, DateTime(2027, 2))!.amount, -950);
+      MonthlyCharges.stop(rule);
+      MonthlyCharges.postDue(rule.id, DateTime(2027, 3));
+      expect(obx.box<Transaction>().count(), 3);
+    },
+  );
 
   /// A series the way saving a transaction sets it up: the first transaction
   /// is logged at [start], and the rest is generated as of [now].

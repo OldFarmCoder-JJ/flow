@@ -22,10 +22,13 @@ final _foods = <(String, RegExp)>[
       caseSensitive: false,
     ),
   ),
+  ("🌅", RegExp(r"早餐|早饭|早点")),
+  ("🍱", RegExp(r"午餐|午饭|中餐|中饭")),
+  ("🌙", RegExp(r"晚餐|晚饭")),
 ];
 
 /// Returns a display-only glyph for a named food or fast-food shop.
-/// Generic titles such as “午餐” keep the category's chosen icon.
+/// A meal-time symbol is used when no specific food is named.
 String? diningExpenseEmoji(String? categoryName, String? title) {
   if (categoryName?.trim() != "餐饮" || title == null || title.isEmpty) {
     return null;

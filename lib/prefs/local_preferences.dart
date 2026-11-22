@@ -68,6 +68,11 @@ class LocalPreferences {
   late final PrimitiveSettingsEntry<String> ledgerPalette;
   late final PrimitiveSettingsEntry<String> ledgerAppearance;
   late final BoolSettingsEntry ledgerThemeMigrated;
+  late final ledgerCategoriesReviewed = BoolSettingsEntry(
+    key: "ledgerCategoriesReviewedV1",
+    preferences: _prefs,
+    initialValue: false,
+  );
   late final BoolSettingsEntry ledgerEntryNamesMigrated;
   late final BoolSettingsEntry privacyMode;
   late final BoolSettingsEntry privacyModeUponShaking;

@@ -80,6 +80,7 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
     super.dispose();
   }
 
+  final _titles = <(TransactionType, int), List<String>>{};
   late final _uses = _readUsage();
   late Map<String, dynamic> _overrides = jsonDecode(
     LocalPreferences().entryCategoryChoices.value ?? "{}",
@@ -90,6 +91,8 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
       TransactionType.expense: {},
       TransactionType.income: {},
     };
+    final names =
+        <(TransactionType, int), Map<String, (String, int, DateTime)>>{};
     for (final row in ObjectBox().box<Transaction>().getAll()) {
       if (row.isDeleted == true || row.isTransfer || row.amount == 0) continue;
       final group =
@@ -97,7 +100,30 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
               ? TransactionType.expense
               : TransactionType.income]!;
       final id = row.category.targetId;
-      if (id != 0) group.update(id, (n) => n + 1, ifAbsent: () => 1);
+      if (id == 0) continue;
+      group.update(id, (n) => n + 1, ifAbsent: () => 1);
+      final name = row.title?.trim();
+      if (name == null ||
+          name.isEmpty ||
+          name.length > Transaction.maxTitleLength) {
+        continue;
+      }
+      final titles = names.putIfAbsent((row.type, id), () => {});
+      final key = name.toLowerCase(), prior = titles[key];
+      final latest = prior == null || row.transactionDate.isAfter(prior.$3);
+      titles[key] = (
+        latest ? name : prior.$1,
+        (prior?.$2 ?? 0) + 1,
+        latest ? row.transactionDate : prior.$3,
+      );
+    }
+    for (final group in names.entries) {
+      final values = group.value.values.toList()
+        ..sort((a, b) {
+          final count = b.$2.compareTo(a.$2);
+          return count != 0 ? count : b.$3.compareTo(a.$3);
+        });
+      _titles[group.key] = [for (final value in values) value.$1];
     }
     return counts;
   }
@@ -331,6 +357,8 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
                         child: _EntryComposer(
                           isExpense: _type == TransactionType.expense,
                           category: pickedCategory,
+                          suggestions:
+                              _titles[(_type, pickedCategory.id)] ?? const [],
                           amount: _amount,
                           amountFocus: _amountFocus,
                           name: _name,

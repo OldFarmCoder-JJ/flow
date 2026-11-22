@@ -9,6 +9,14 @@ import "package:flow/providers/categories_provider.dart";
 import "package:flutter/material.dart";
 import "package:intl/intl.dart";
 
+import "package:flow/entity/account.dart";
+import "package:flow/entity/category.dart";
+import "package:flow/entity/recurring_transaction.dart";
+import "package:flow/providers/accounts_provider.dart";
+import "package:flow/services/monthly_charges.dart";
+import "package:flow/services/transactions.dart";
+part "monthly_charge_setup.dart";
+
 final _format = NumberFormat("#,##0.00", "zh_CN");
 String _money(int cents) => _format.format(cents / 100);
 
@@ -94,7 +102,7 @@ class _MonthlyRoomState extends State<_MonthlyRoom> {
   }
 
   Future<void> actions(String? id, String name) async {
-    final edit = await showModalBottomSheet<bool>(
+    final edit = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -107,22 +115,36 @@ class _MonthlyRoomState extends State<_MonthlyRoom> {
             ListTile(
               leading: const Icon(Icons.edit_outlined),
               title: const Text("修改金额"),
-              onTap: () => Navigator.pop(context, true),
+              onTap: () => Navigator.pop(context, "edit"),
             ),
+            if (id != null &&
+                widget.month == LedgerInterval.month.start(DateTime.now()) &&
+                !MonthlyCharges.active().any(
+                  (r) => r.template.categoryUuid == id,
+                ))
+              ListTile(
+                leading: const Icon(Icons.event_repeat),
+                title: const Text("改为每月 1 日扣款"),
+                onTap: () => Navigator.pop(context, "repeat"),
+              ),
             ListTile(
               leading: Icon(
                 Icons.delete_outline,
                 color: Theme.of(context).colorScheme.error,
               ),
               title: Text(id == null ? "移除储蓄目标" : "删除这项预留"),
-              onTap: () => Navigator.pop(context, false),
+              onTap: () => Navigator.pop(context, "delete"),
             ),
           ],
         ),
       ),
     );
     if (!mounted || edit == null) return;
-    if (edit) {
+    if (edit == "repeat") {
+      await addCharge(id);
+      return;
+    }
+    if (edit == "edit") {
       await editAmount(id, name);
     } else {
       await saveAmount(id, 0);
@@ -141,6 +163,106 @@ class _MonthlyRoomState extends State<_MonthlyRoom> {
         ).showSnackBar(const SnackBar(content: Text("保存失败，请重试")));
       }
     }
+  }
+
+  Future<void> addCharge([String? categoryId]) async {
+    final rules = MonthlyCharges.active();
+    final choices = CategoriesProvider.of(context)
+        .categoriesFor(TransactionType.expense)
+        .where((c) => !rules.any((r) => r.template.categoryUuid == c.uuid))
+        .toList();
+    final accounts = AccountsProvider.of(
+      context,
+    ).activeAccounts.where((a) => a.currency == ledgerCurrency).toList();
+    if (choices.isEmpty || accounts.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("需要一个可用的人民币账户和支出分类")));
+      return;
+    }
+    final result = await showDialog<(Account, Category, int, bool)>(
+      context: context,
+      builder: (_) => _ChargeSetup(
+        initial: choices.where((c) => c.uuid == categoryId).firstOrNull,
+        categories: choices,
+        accounts: accounts,
+        limits: plan.limits,
+      ),
+    );
+    if (!mounted || result == null) return;
+    final (a, c, n, next) = result;
+    final now = DateTime.now();
+    try {
+      MonthlyCharges.create(
+        a,
+        c,
+        n,
+        DateTime(now.year, now.month + (next ? 1 : 0)),
+      );
+      if (!next && plan.limits.containsKey(c.uuid)) await saveAmount(c.uuid, 0);
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("无法建立扣款：$e")));
+      }
+    }
+  }
+
+  Future<void> manageCharge(RecurringTransaction rule) async {
+    final row = MonthlyCharges.entry(rule, widget.month);
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (row != null)
+              ListTile(
+                leading: const Icon(Icons.event_busy_outlined),
+                title: Text(row.isDeleted == true ? "恢复本月扣款" : "仅跳过本月"),
+                subtitle: const Text("其他月份继续执行"),
+                onTap: () => Navigator.pop(c, "toggle"),
+              ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text("修改以后每月金额"),
+              onTap: () => Navigator.pop(c, "edit"),
+            ),
+            ListTile(
+              leading: const Icon(Icons.stop_circle_outlined),
+              title: const Text("停止以后扣款"),
+              subtitle: const Text("保留已记入的流水"),
+              onTap: () => Navigator.pop(c, "stop"),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == "toggle" && row != null) {
+      if (row.isDeleted == true) {
+        TransactionsService().recoverFromBinSync(row.id);
+      } else {
+        TransactionsService().moveToBinSync(row.id);
+      }
+    } else if (action == "stop") {
+      MonthlyCharges.stop(rule);
+    } else if (action == "edit") {
+      final cents = await showDialog<int>(
+        context: context,
+        builder: (_) => _AmountDialog(
+          label: "修改以后每月金额",
+          original: (rule.template.amount.abs() * 100).round(),
+          charge: true,
+        ),
+      );
+      if (cents == null || !mounted) return;
+      MonthlyCharges.changeAmount(rule, cents);
+    }
+    if (mounted) setState(() {});
   }
 
   Future<void> addReserve() async {
@@ -302,11 +424,53 @@ class _MonthlyRoomState extends State<_MonthlyRoom> {
                       ? null
                       : () => actions(null, "储蓄目标"),
                 ),
+              if (!past) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text("每月必要扣款", style: theme.textTheme.titleMedium),
+                    ),
+                    TextButton.icon(
+                      onPressed: addCharge,
+                      icon: const Icon(Icons.add),
+                      label: const Text("添加扣款"),
+                    ),
+                  ],
+                ),
+                for (final rule in MonthlyCharges.active())
+                  Builder(
+                    builder: (c) {
+                      final row = MonthlyCharges.entry(rule, widget.month);
+                      final startsLater = rule.template.transactionDate
+                          .toLocal()
+                          .isAfter(widget.month);
+                      final status = startsLater
+                          ? "下月开始"
+                          : row == null
+                          ? (rule.lastGeneratedTransactionDate == null
+                                ? "待入账"
+                                : "本月无扣款")
+                          : row.isDeleted == true
+                          ? "本月已跳过"
+                          : "本月已记 ¥ ${_money((-row.amount * 100).round())}";
+                      return _PlanTile(
+                        name: rule.template.title ?? "必要扣款",
+                        icon: Icons.event_repeat,
+                        detail: status,
+                        subtitle:
+                            "每月 1 日 · ¥ ${_money((-rule.template.amount * 100).round())}",
+                        onEdit: () => manageCharge(rule),
+                        onActions: () => manageCharge(rule),
+                      );
+                    },
+                  ),
+                const Divider(),
+              ],
               Row(
                 children: [
                   Expanded(
                     child: Text(
-                      past ? "当月预留记录" : "必要开销预留",
+                      past ? "当月预留记录" : "本月预算预留",
                       style: theme.textTheme.titleMedium,
                     ),
                   ),
@@ -379,7 +543,12 @@ class _PlanTile extends StatelessWidget {
 }
 
 class _AmountDialog extends StatefulWidget {
-  const _AmountDialog({required this.label, required this.original});
+  const _AmountDialog({
+    required this.label,
+    required this.original,
+    this.charge = false,
+  });
+  final bool charge;
   final String label;
   final int original;
   @override
@@ -405,6 +574,10 @@ class _AmountDialogState extends State<_AmountDialog> {
       setState(() => error = "请输入金额，最多两位小数");
       return;
     }
+    if (widget.charge && double.parse(text) <= 0) {
+      setState(() => error = "请输入大于零的金额");
+      return;
+    }
     Navigator.pop(context, (double.parse(text) * 100).round());
   }
 
@@ -417,8 +590,8 @@ class _AmountDialogState extends State<_AmountDialog> {
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       onSubmitted: (_) => submit(),
       decoration: InputDecoration(
-        labelText: "本月计划金额（元）",
-        helperText: "填 0 可取消预留",
+        labelText: widget.charge ? "每月金额（元）" : "本月计划金额（元）",
+        helperText: widget.charge ? null : "填 0 可取消预留",
         errorText: error,
       ),
     ),

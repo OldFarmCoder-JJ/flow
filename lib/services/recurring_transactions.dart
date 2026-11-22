@@ -1,6 +1,7 @@
 import "dart:async";
 import "dart:convert";
 import "dart:math";
+import "package:flow/services/monthly_charges.dart";
 
 import "package:flow/data/money.dart";
 import "package:flow/data/transaction_filter.dart";
@@ -62,6 +63,10 @@ class RecurringTransactionsService {
     try {
       _log.fine("$loggingPrefix Synchronizing recurring transaction");
 
+      if (MonthlyCharges.owns(recurringTransaction)) {
+        MonthlyCharges.postDue(recurringTransaction.id, anchor);
+        return;
+      }
       if (recurringTransaction.disabled) {
         _log.fine("$loggingPrefix Recurring transaction is disabled, skipping");
         return;
