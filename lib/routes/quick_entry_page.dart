@@ -1,5 +1,7 @@
 import "package:flow/data/legacy_shark_entry.dart";
 import "dart:io";
+import "dart:convert";
+import "package:flow/routes/merchant_marks_page.dart";
 
 import "package:flow/data/ledger_stats.dart";
 import "package:flow/entity/account.dart";
@@ -38,7 +40,7 @@ const _commonExpenses = [
   "住房",
   "医疗",
 ];
-const _commonIncomes = ["工资", "奖金", "兼职", "红包", "退款", "理财", "收入"];
+const _commonIncomes = ["工资", "兼职", "礼金", "理财", "其它", "奖金", "红包", "退款", "收入"];
 
 /// The single-screen entry flow for everyday income and expenses.
 class QuickEntryPage extends StatefulWidget {
@@ -78,11 +80,142 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
     super.dispose();
   }
 
+  late final _uses = _readUsage();
+  late Map<String, dynamic> _overrides = jsonDecode(
+    LocalPreferences().entryCategoryChoices.value ?? "{}",
+  );
+
+  Map<TransactionType, Map<int, int>> _readUsage() {
+    final counts = <TransactionType, Map<int, int>>{
+      TransactionType.expense: {},
+      TransactionType.income: {},
+    };
+    for (final row in ObjectBox().box<Transaction>().getAll()) {
+      if (row.isDeleted == true || row.isTransfer || row.amount == 0) continue;
+      final group =
+          counts[row.amount < 0
+              ? TransactionType.expense
+              : TransactionType.income]!;
+      final id = row.category.targetId;
+      if (id != 0) group.update(id, (n) => n + 1, ifAbsent: () => 1);
+    }
+    return counts;
+  }
+
+  bool _suggested(Category c) {
+    final counts = _uses[_type]!;
+    if (counts.containsKey(c.id)) return true;
+    if (counts.isNotEmpty) return false;
+    return (_type == TransactionType.income ? _commonIncomes : _commonExpenses)
+        .contains(c.name);
+  }
+
+  String _choiceKey(Category c) => "${_type.name}.${c.uuid}";
+
   List<Category> _categories(CategoriesProvider provider) {
     final priority = _type == TransactionType.expense
         ? _commonExpenses
         : _commonIncomes;
-    return provider.categoriesFor(_type, defaults: priority);
+    final list = provider
+        .categoriesFor(_type, defaults: priority)
+        .where((c) => (_overrides[_choiceKey(c)] as bool?) ?? _suggested(c))
+        .toList();
+    final counts = _uses[_type]!;
+    final rank = {for (final (i, c) in list.indexed) c.id: i};
+    list.sort((a, b) {
+      final n = (counts[b.id] ?? 0).compareTo(counts[a.id] ?? 0);
+      return n != 0 ? n : rank[a.id]!.compareTo(rank[b.id]!);
+    });
+    return list;
+  }
+
+  Future<void> _chooseVisible() async {
+    final draft = {..._overrides};
+    var filter = "";
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: .8,
+        child: SafeArea(
+          child: StatefulBuilder(
+            builder: (c, setSheet) {
+              final all = CategoriesProvider.of(
+                c,
+              ).categories.where((v) => v.name.contains(filter)).toList();
+              return Column(
+                children: [
+                  ListTile(
+                    title: Text(
+                      _type == TransactionType.income ? "收入分类" : "支出分类",
+                    ),
+                    trailing: TextButton(
+                      onPressed: () => Navigator.pop(c, true),
+                      child: const Text("保存"),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      onChanged: (v) => setSheet(() => filter = v.trim()),
+                      decoration: const InputDecoration(
+                        hintText: "搜索分类",
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: all.length,
+                      itemBuilder: (_, i) {
+                        final category = all[i], key = _choiceKey(category);
+                        return CheckboxListTile(
+                          value: (draft[key] as bool?) ?? _suggested(category),
+                          title: Text(category.name),
+                          secondary: LedgerCategoryIcon(
+                            category: category,
+                            diameter: 32,
+                          ),
+                          onChanged: (v) =>
+                              setSheet(() => draft[key] = v ?? false),
+                        );
+                      },
+                    ),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text("新建分类"),
+                    onPressed: () async {
+                      final uuid = await this.context.push<String>(
+                        "/category/new",
+                      );
+                      if (c.mounted && uuid != null) {
+                        setSheet(() {
+                          draft["${_type.name}.$uuid"] = true;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await LocalPreferences().entryCategoryChoices.set(jsonEncode(draft));
+    if (mounted) {
+      setState(() {
+        _overrides = draft;
+        if (!_categories(
+          CategoriesProvider.of(context),
+        ).any((c) => c.uuid == _categoryId)) {
+          _categoryId = null;
+        }
+      });
+    }
   }
 
   Account? _account(List<Account> accounts) {
@@ -183,6 +316,7 @@ class _QuickEntryPageState extends State<QuickEntryPage> {
                       child: _CategoryGrid(
                         controller: _gridScroll,
                         ready: provider.ready,
+                        onManage: _chooseVisible,
                         categories: _categories(provider),
                         selectedId: _categoryId,
                         onSelect: _selectCategory,

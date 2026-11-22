@@ -1,5 +1,3 @@
-import "dart:async";
-
 import "package:flow/data/flow_icon.dart";
 import "package:flow/data/string_multi_filter.dart";
 import "package:flow/data/transaction_filter.dart";
@@ -181,13 +179,12 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
       colorSchemeName: _colorSchemeName,
     );
 
-    unawaited(
-      ObjectBox().box<Category>().putAsync(category, mode: PutMode.insert),
-    );
+    await ObjectBox().box<Category>().putAsync(category, mode: PutMode.insert);
+    if (!mounted) return;
 
     context.showToast(text: "category.new.success".t(context));
 
-    context.pop();
+    context.pop(category.uuid);
   }
 
   bool hasChanged() {

@@ -1,3 +1,5 @@
+import "package:flow/data/merchant_mark.dart";
+import "package:flow/prefs/local_preferences.dart";
 import "package:flow/entity/category.dart";
 import "package:flow/data/dining_expense_emoji.dart";
 import "package:flow/data/flow_icon.dart";
@@ -50,12 +52,14 @@ class LedgerCategoryIcon extends StatelessWidget {
     this.diameter = 42,
     this.selected = false,
     this.expenseTitle,
+    this.incomeTitle,
   });
 
   final Category? category;
 
   /// Supply the entry title only when showing an individual expense.
   final String? expenseTitle;
+  final String? incomeTitle;
   final double diameter;
   final bool selected;
 
@@ -75,7 +79,7 @@ class LedgerCategoryIcon extends StatelessWidget {
     );
     final emoji = diningExpenseEmoji(category?.name, expenseTitle);
     final glyph = emoji == null ? category?.icon : FlowIconData.emoji(emoji);
-    return SizedBox.square(
+    final fallback = SizedBox.square(
       dimension: diameter,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -94,6 +98,16 @@ class LedgerCategoryIcon extends StatelessWidget {
                 ),
         ),
       ),
+    );
+    final title = expenseTitle ?? incomeTitle;
+    if (title == null || title.isEmpty) return fallback;
+    return ListenableBuilder(
+      listenable: LocalPreferences().merchantMarks.valueNotifier,
+      child: fallback,
+      builder: (_, child) {
+        final brand = MerchantMark.match(title);
+        return brand == null ? child! : MerchantBadge(brand, size: diameter);
+      },
     );
   }
 }

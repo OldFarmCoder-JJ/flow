@@ -1,4 +1,6 @@
 import "dart:io";
+import "package:flow/data/merchant_mark.dart";
+import "package:flow/routes/merchant_marks_page.dart";
 
 import "package:flow/entity/account.dart";
 import "package:flow/entity/category.dart";
@@ -119,7 +121,7 @@ void main() {
     expect(find.text("🥚", findRichText: true), findsOneWidget);
     await tester.enterText(fields.last, "晚餐麦当劳");
     await tester.pump();
-    expect(find.text("🍔", findRichText: true), findsOneWidget);
+    expect(find.text("M", findRichText: true), findsOneWidget);
     expect(find.text("🥚", findRichText: true), findsNothing);
     await tester.tap(find.byTooltip("添加备注"));
     await tester.pumpAndSettle();
@@ -185,6 +187,66 @@ void main() {
     await tester.pump();
     expect(find.byTooltip("回到当前期间"), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets("income category visibility persists independently of expenses", (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    await tester.pumpWidget(app(const QuickEntryPage()));
+    await tester.tap(find.text("收入"));
+    await tester.pumpAndSettle();
+    expect(find.text("工资"), findsOneWidget);
+    expect(find.text("餐饮"), findsNothing);
+    await tester.tap(find.text("调整显示分类"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CheckboxListTile, "工资"));
+    await tester.tap(find.text("保存"));
+    await tester.pumpAndSettle();
+    expect(find.text("工资"), findsNothing);
+    await tester.tap(find.text("支出"));
+    await tester.pumpAndSettle();
+    expect(find.text("餐饮"), findsOneWidget);
+    expect(find.text("工资"), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(app(const QuickEntryPage()));
+    await tester.tap(find.text("收入"));
+    await tester.pumpAndSettle();
+    expect(find.text("工资"), findsNothing);
+    await LocalPreferences().entryCategoryChoices.remove();
+  });
+
+  testWidgets("merchant marks support alias lookup and local CRUD", (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    expect(MerchantMark.match("夜宵Kfc")?.name, "肯德基");
+    expect(MerchantMark.match("711早餐")?.name, "7-Eleven");
+    expect(MerchantMark.match("订单17112"), isNull);
+    await tester.pumpWidget(app(const MerchantMarksPage()));
+    await tester.tap(find.byTooltip("添加品牌"));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), "街角小店");
+    await tester.enterText(fields.at(1), "街");
+    await tester.enterText(fields.at(2), "小街角");
+    await tester.tap(find.text("保存"));
+    await tester.pumpAndSettle();
+    expect(MerchantMark.match("早餐小街角")?.mark, "街");
+    await tester.enterText(find.byType(TextField), "小街角");
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("街角小店"));
+    await tester.pumpAndSettle();
+    await tester.enterText(fields.at(1), "角");
+    await tester.tap(find.text("保存"));
+    await tester.pumpAndSettle();
+    expect(MerchantMark.match("街角小店")?.mark, "角");
+    await tester.tap(find.byTooltip("删除街角小店"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("删除"));
+    await tester.pumpAndSettle();
+    expect(MerchantMark.match("小街角"), isNull);
+    await LocalPreferences().merchantMarks.remove();
   });
 
   testWidgets("entry can start with a category before an account exists", (

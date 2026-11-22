@@ -11,7 +11,16 @@ class _EntryMenu extends StatelessWidget {
     enabled: enabled,
     tooltip: "更多记账选项",
     icon: const Icon(Icons.more_horiz),
-    onSelected: (path) => context.push(path),
+    onSelected: (path) {
+      if (path == "brands") {
+        Navigator.push(
+          context,
+          MaterialPageRoute<void>(builder: (_) => const MerchantMarksPage()),
+        );
+      } else {
+        context.push(path);
+      }
+    },
     itemBuilder: (_) => [
       PopupMenuItem(
         value: "/transaction/new?type=${type.name}",
@@ -21,6 +30,7 @@ class _EntryMenu extends StatelessWidget {
         value: "/transaction/new?type=transfer",
         child: Text("账户转账"),
       ),
+      const PopupMenuItem(value: "brands", child: Text("品牌图标")),
       const PopupMenuItem(value: "/categories", child: Text("管理分类")),
     ],
   );
@@ -29,6 +39,7 @@ class _EntryMenu extends StatelessWidget {
 class _CategoryGrid extends StatelessWidget {
   const _CategoryGrid({
     required this.controller,
+    required this.onManage,
     required this.ready,
     required this.categories,
     required this.selectedId,
@@ -36,6 +47,7 @@ class _CategoryGrid extends StatelessWidget {
     required this.enabled,
   });
 
+  final VoidCallback onManage;
   final ScrollController controller;
   final bool ready;
   final List<Category> categories;
@@ -61,14 +73,6 @@ class _CategoryGrid extends StatelessWidget {
           controller: controller,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
-            if (categories.isEmpty)
-              SliverToBoxAdapter(
-                child: TextButton.icon(
-                  onPressed: enabled ? () => context.push("/categories") : null,
-                  icon: const Icon(Icons.add),
-                  label: const Text("添加分类"),
-                ),
-              ),
             for (final (heading, start, end) in [
               if (firstCount > 0)
                 (
@@ -106,6 +110,13 @@ class _CategoryGrid extends StatelessWidget {
                 ),
               ),
             ],
+            SliverToBoxAdapter(
+              child: TextButton.icon(
+                icon: const Icon(Icons.tune),
+                label: const Text("调整显示分类"),
+                onPressed: enabled ? onManage : null,
+              ),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
           ],
         );
@@ -239,6 +250,7 @@ class _EntryComposer extends StatelessWidget {
                   valueListenable: name,
                   builder: (_, value, _) => LedgerCategoryIcon(
                     category: category,
+                    incomeTitle: isExpense ? null : value.text,
                     expenseTitle: isExpense ? value.text : null,
                     selected: true,
                     diameter: 28,

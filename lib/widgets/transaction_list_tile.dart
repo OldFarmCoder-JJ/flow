@@ -400,6 +400,9 @@ class TransactionListTile extends StatelessWidget {
       return LedgerCategoryIcon(
         category: category,
         diameter: 40,
+        incomeTitle: transaction.type == TransactionType.income
+            ? transaction.title
+            : null,
         expenseTitle: transaction.type == TransactionType.expense
             ? transaction.title
             : null,

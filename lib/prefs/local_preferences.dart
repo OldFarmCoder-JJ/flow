@@ -57,6 +57,14 @@ class LocalPreferences {
 
   late final BoolSettingsEntry autoAttachTransactionGeo;
 
+  late final merchantMarks = PrimitiveSettingsEntry<String>(
+    key: "ledger.merchantMarks",
+    preferences: _prefs,
+  );
+  late final entryCategoryChoices = PrimitiveSettingsEntry<String>(
+    key: "ledger.entryCategoryChoices",
+    preferences: _prefs,
+  );
   late final PrimitiveSettingsEntry<String> ledgerPalette;
   late final PrimitiveSettingsEntry<String> ledgerAppearance;
   late final BoolSettingsEntry ledgerThemeMigrated;

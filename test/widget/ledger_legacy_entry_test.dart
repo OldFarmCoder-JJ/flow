@@ -340,11 +340,11 @@ void main() {
       ),
     );
     await render();
-    expect(find.text("🍔", findRichText: true), findsOneWidget);
+    expect(find.text("M", findRichText: true), findsOneWidget);
     rows.put(rows.get(id)!..title = "早餐鸡蛋");
     await render();
     expect(find.text("🥚", findRichText: true), findsOneWidget);
-    expect(find.text("🍔", findRichText: true), findsNothing);
+    expect(find.text("M", findRichText: true), findsNothing);
     expect(rows.get(id)!.category.targetId, dining.id);
     expect(rows.get(id)!.amount, -15);
   });

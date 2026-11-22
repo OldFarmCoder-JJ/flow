@@ -537,6 +537,11 @@ class _TransactionPageState extends State<TransactionPage> {
                                     builder: (_, value, _) =>
                                         LedgerCategoryIcon(
                                           category: _selectedCategory,
+                                          incomeTitle:
+                                              _transactionType ==
+                                                  TransactionType.income
+                                              ? value.text
+                                              : null,
                                           expenseTitle:
                                               _transactionType ==
                                                   TransactionType.expense
