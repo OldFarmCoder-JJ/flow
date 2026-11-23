@@ -266,6 +266,83 @@ void main() {
   );
 
   testWidgets(
+    "spending room reconciles the November example and keeps typed rent",
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 740);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final now = DateTime.now();
+      final pref = LocalPreferences().monthlyReservePlan(now);
+      await pref.set(const MonthlyReserve(savings: 600000).encode());
+      final ids = [
+        wallet.createAndSaveTransaction(amount: 12222),
+        wallet.createAndSaveTransaction(amount: -4570.71),
+      ];
+      addTearDown(() async {
+        db.box<Transaction>().removeMany(ids);
+        await pref.remove();
+        for (final rule in MonthlyCharges.active()) {
+          db.box<RecurringTransaction>().remove(rule.id);
+        }
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeFactory(ledgerDark).materialTheme,
+          home: providers(const Scaffold(body: SpendingRoomTab())),
+        ),
+      );
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      for (final text in [
+        "¥ 1,651.29",
+        "+12,222.00",
+        "−4,570.71",
+        "−6,000.00",
+      ]) {
+        expect(find.text(text), findsOneWidget);
+      }
+      await tester.tap(find.byTooltip("添加支出安排"));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("每月固定扣款"));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, "保存"))
+            .onPressed,
+        isNull,
+      );
+      await tester.enterText(find.byType(TextField), "910");
+      await tester.tap(find.byType(DropdownButton<Category>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(shopping.name).last);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        "910",
+      );
+      await tester.ensureVisible(find.text("从下月开始"));
+      await tester.tap(find.text("从下月开始"));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text("保存"));
+      await tester.tap(find.text("保存"));
+      await tester.pumpAndSettle();
+      expect(find.text("¥ 1,651.29"), findsOneWidget);
+      expect(find.text("下月开始"), findsOneWidget);
+      await tester.tap(find.byTooltip("上个月"));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text("当月没有已入账流水"), findsOneWidget);
+      expect(find.text("当月收支持平"), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     "convert an existing reserve and skip only the generated month's charge",
     (tester) async {
       tester.view.devicePixelRatio = 1;

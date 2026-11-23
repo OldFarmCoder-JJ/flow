@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:flow/data/ledger_bills.dart";
 import "package:flow/data/ledger_stats.dart";
 import "package:flow/data/monthly_reserve.dart";
@@ -29,7 +31,41 @@ class SpendingRoomTab extends StatefulWidget {
 }
 
 class _SpendingRoomTabState extends State<SpendingRoomTab> {
-  late DateTime month = LedgerInterval.month.start(DateTime.now());
+  DateTime? selected;
+  DateTime today = DateUtils.dateOnly(DateTime.now());
+  late final AppLifecycleListener lifecycle;
+  Timer? timer;
+  DateTime get current => LedgerInterval.month.start(today);
+  DateTime get month => selected ?? current;
+
+  @override
+  void initState() {
+    super.initState();
+    lifecycle = AppLifecycleListener(onResume: refreshDay);
+    refreshDay();
+  }
+
+  void refreshDay() {
+    final now = DateTime.now();
+    final day = DateUtils.dateOnly(now);
+    if (day != today) setState(() => today = day);
+    timer?.cancel();
+    timer = Timer(
+      DateTime(day.year, day.month, day.day + 1).difference(now),
+      refreshDay,
+    );
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    lifecycle.dispose();
+    super.dispose();
+  }
+
+  void showMonth(DateTime value) => setState(() {
+    selected = value == current ? null : value;
+  });
 
   @override
   Widget build(BuildContext context) => Column(
@@ -39,30 +75,28 @@ class _SpendingRoomTabState extends State<SpendingRoomTab> {
           IconButton(
             tooltip: "上个月",
             icon: const Icon(Icons.chevron_left),
-            onPressed: () =>
-                setState(() => month = DateTime(month.year, month.month - 1)),
+            onPressed: () => showMonth(DateTime(month.year, month.month - 1)),
           ),
           Expanded(
-            child: Text(
-              "${month.year}年${month.month}月",
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
+            child: TextButton(
+              onPressed: selected == null ? null : () => showMonth(current),
+              child: Text(
+                "${month.year}年${month.month}月${selected == null ? '' : ' · 回本月'}",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
           ),
           IconButton(
             tooltip: "下个月",
             icon: const Icon(Icons.chevron_right),
-            onPressed:
-                month.isBefore(LedgerInterval.month.start(DateTime.now()))
-                ? () => setState(
-                    () => month = DateTime(month.year, month.month + 1),
-                  )
+            onPressed: month.isBefore(current)
+                ? () => showMonth(DateTime(month.year, month.month + 1))
                 : null,
           ),
         ],
       ),
       Expanded(
-        child: _MonthlyRoom(key: ValueKey(month), month: month),
+        child: _MonthlyRoom(key: ValueKey((month, today)), month: month),
       ),
     ],
   );
@@ -180,8 +214,11 @@ class _MonthlyRoomState extends State<_MonthlyRoom> {
       ).showSnackBar(const SnackBar(content: Text("需要一个可用的人民币账户和支出分类")));
       return;
     }
-    final result = await showDialog<(Account, Category, int, bool)>(
+    final result = await showModalBottomSheet<(Account, Category, int, bool)>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
       builder: (_) => _ChargeSetup(
         initial: choices.where((c) => c.uuid == categoryId).firstOrNull,
         categories: choices,
@@ -320,9 +357,7 @@ class _MonthlyRoomState extends State<_MonthlyRoom> {
             : available > 0
             ? green
             : red;
-        final largest = totals.income > totals.expense
-            ? totals.income
-            : totals.expense;
+        final rules = past ? <RecurringTransaction>[] : MonthlyCharges.active();
         final heading = past
             ? (available == 0
                   ? "当月收支持平"
@@ -333,111 +368,125 @@ class _MonthlyRoomState extends State<_MonthlyRoom> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
           children: [
-            Text(past ? "月度收支" : "可支配收入", style: theme.textTheme.titleLarge),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  tone.withValues(alpha: .09),
-                  colors.surface,
+            if (past && (bills.entries[widget.month]?.isEmpty ?? true))
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: Text("当月没有已入账流水")),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+                decoration: BoxDecoration(
+                  color: Color.alphaBlend(
+                    tone.withValues(alpha: .065),
+                    colors.surface,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        available == 0
-                            ? Icons.balance
-                            : available > 0
-                            ? Icons.trending_up
-                            : Icons.trending_down,
-                        color: tone,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(heading, style: theme.textTheme.titleMedium),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      "¥ ${_money(available.abs())}",
-                      style: theme.textTheme.headlineLarge?.copyWith(
-                        color: tone,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    past ? "当月已入账收入 − 当月已花支出" : "收支结余 − 待付预留 − 储蓄目标",
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            for (final (label, amount, color, icon) in [
-              ("已入账收入", totals.income, green, Icons.south_west),
-              ("已花支出", totals.expense, red, Icons.north_east),
-            ])
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
-                      children: [
-                        Icon(icon, size: 18, color: color),
-                        const SizedBox(width: 6),
-                        Expanded(child: Text(label)),
-                        Text(
-                          _money(amount),
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: color,
+                    Text(heading, style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          "¥ ${_money(available.abs())}",
+                          style: theme.textTheme.headlineLarge?.copyWith(
+                            color: tone,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    LinearProgressIndicator(
-                      value: largest == 0 ? 0 : amount / largest,
-                      color: color,
-                      backgroundColor: colors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(4),
+                    if (!past && available > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          "含今天还剩 ${_daysLeft(bills.now)} 天 · 日均可用 ¥ ${_money(available ~/ _daysLeft(bills.now))}",
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    const Divider(height: 24),
+                    _BalanceLine(
+                      label: "已入账收入",
+                      value: "+${_money(totals.income)}",
+                      color: green,
                     ),
+                    _BalanceLine(
+                      label: "已花支出",
+                      value: "−${_money(totals.expense)}",
+                      color: red,
+                    ),
+                    if (!past) ...[
+                      if (plan.limits.isNotEmpty)
+                        _BalanceLine(
+                          label: "尚需预留",
+                          value: "−${_money(reserved)}",
+                        ),
+                      _BalanceLine(
+                        label: "储蓄目标",
+                        value: plan.savings == 0
+                            ? "设置"
+                            : "−${_money(plan.savings)}",
+                        onTap: () => editAmount(null, "储蓄目标"),
+                        onLongPress: plan.savings == 0
+                            ? null
+                            : () => actions(null, "储蓄目标"),
+                      ),
+                    ],
                   ],
                 ),
               ),
             if (!past || plan.savings > 0 || plan.limits.isNotEmpty) ...[
-              const Divider(height: 32),
-              if (!past || plan.savings > 0)
-                _PlanTile(
-                  name: "储蓄目标",
-                  detail: _money(plan.savings),
-                  icon: Icons.savings_outlined,
-                  onEdit: () => editAmount(null, "储蓄目标"),
-                  onActions: plan.savings == 0
-                      ? null
-                      : () => actions(null, "储蓄目标"),
-                ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      past ? "当月计划记录" : "支出安排",
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  if (!past)
+                    PopupMenuButton<String>(
+                      tooltip: "添加支出安排",
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          "＋ 添加",
+                          style: TextStyle(color: colors.primary),
+                        ),
+                      ),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: "monthly", child: Text("每月固定扣款")),
+                        PopupMenuItem(value: "once", child: Text("仅本月预留")),
+                      ],
+                      onSelected: (kind) {
+                        if (kind == "monthly") {
+                          addCharge();
+                        } else {
+                          addReserve();
+                        }
+                      },
+                    ),
+                ],
+              ),
+              if (past && plan.savings > 0)
+                _BalanceLine(label: "当时的储蓄目标", value: _money(plan.savings)),
               if (!past) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text("每月必要扣款", style: theme.textTheme.titleMedium),
+                if (rules.isEmpty && plan.limits.isEmpty)
+                  Text(
+                    "房租等固定支出可按月记账，临时开销可只预留本月。",
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
                     ),
-                    TextButton.icon(
-                      onPressed: addCharge,
-                      icon: const Icon(Icons.add),
-                      label: const Text("添加扣款"),
-                    ),
-                  ],
-                ),
-                for (final rule in MonthlyCharges.active())
+                  ),
+                for (final rule in rules)
                   Builder(
                     builder: (c) {
                       final row = MonthlyCharges.entry(rule, widget.month);
@@ -464,46 +513,84 @@ class _MonthlyRoomState extends State<_MonthlyRoom> {
                       );
                     },
                   ),
-                const Divider(),
               ],
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      past ? "当月预留记录" : "本月预算预留",
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  if (!past)
-                    TextButton.icon(
-                      onPressed: addReserve,
-                      icon: const Icon(Icons.add),
-                      label: const Text("添加"),
-                    ),
-                ],
-              ),
-              if (!past)
-                Text(
-                  "待付合计 ¥ ${_money(reserved)}",
-                  style: theme.textTheme.bodyMedium,
-                ),
               for (final entry in plan.limits.entries)
                 _PlanTile(
                   name: cats.get(entry.key)?.name ?? "已移除分类",
                   icon: Icons.bookmark_outline,
                   subtitle: "月计划 ${_money(entry.value)}",
                   detail: "${past ? '未用' : '待付'} ${_money(left[entry.key]!)}",
-                  onEdit: () => editAmount(
-                    entry.key,
-                    cats.get(entry.key)?.name ?? "已移除分类",
-                  ),
-                  onActions: () =>
-                      actions(entry.key, cats.get(entry.key)?.name ?? "已移除分类"),
+                  onEdit: past
+                      ? null
+                      : () => editAmount(
+                          entry.key,
+                          cats.get(entry.key)?.name ?? "已移除分类",
+                        ),
+                  onActions: past
+                      ? null
+                      : () => actions(
+                          entry.key,
+                          cats.get(entry.key)?.name ?? "已移除分类",
+                        ),
                 ),
             ],
           ],
         );
       },
+    );
+  }
+}
+
+int _daysLeft(DateTime date) =>
+    DateTime(date.year, date.month + 1, 0).day - date.day + 1;
+
+class _BalanceLine extends StatelessWidget {
+  const _BalanceLine({
+    required this.label,
+    required this.value,
+    this.color,
+    this.onTap,
+    this.onLongPress,
+  });
+  final String label, value;
+  final Color? color;
+  final VoidCallback? onTap, onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: onTap == null ? 32 : 48),
+        child: Row(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(label, style: theme.textTheme.bodyMedium),
+                  ),
+                  if (onTap != null)
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Text(
+                value,
+                textAlign: TextAlign.end,
+                style: theme.textTheme.titleSmall?.copyWith(color: color),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -520,7 +607,7 @@ class _PlanTile extends StatelessWidget {
   final String name, detail;
   final String? subtitle;
   final IconData icon;
-  final VoidCallback onEdit;
+  final VoidCallback? onEdit;
   final VoidCallback? onActions;
 
   @override
@@ -534,11 +621,15 @@ class _PlanTile extends StatelessWidget {
     ),
     onTap: onEdit,
     onLongPress: onActions,
-    trailing: IconButton(
-      tooltip: onActions == null ? "设置$name" : "管理$name",
-      icon: Icon(onActions == null ? Icons.edit_outlined : Icons.more_horiz),
-      onPressed: onActions ?? onEdit,
-    ),
+    trailing: onEdit == null
+        ? null
+        : IconButton(
+            tooltip: onActions == null ? "设置$name" : "管理$name",
+            icon: Icon(
+              onActions == null ? Icons.edit_outlined : Icons.more_horiz,
+            ),
+            onPressed: onActions ?? onEdit,
+          ),
   );
 }
 
